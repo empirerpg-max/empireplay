@@ -3,7 +3,7 @@
 //  Integrado com Google Sheets via Apps Script Web App
 // ============================================================
 
-const API_URL = "COLE_AQUI_A_URL_DO_SEU_DEPLOY/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
 
 let musicasDB = [];
 let currentTopicoId = null;
