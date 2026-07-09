@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EmpirePlay</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <main>
+    <nav class="main-menu">
+      <div>
+        <div class="logo">
+          <i class="fa-solid fa-crown"></i>
+          <span>Empire<b>Play</b></span>
+        </div>
+        <ul>
+          <li class="nav-item active" data-section="home">
+            <a href="#"><i class="fa fa-house nav-icon"></i><span class="nav-text">Home</span></a>
+          </li>
+          <li class="nav-item" data-section="my-songs">
+            <a href="#"><i class="fa fa-music nav-icon"></i><span class="nav-text">Minhas Musicas</span></a>
+          </li>
+          <li class="nav-item" data-section="top-playlists">
+            <a href="#"><i class="fa fa-circle-play nav-icon"></i><span class="nav-text">Top Playlists</span></a>
+          </li>
+          <li class="nav-item" data-section="albums">
+            <a href="#"><i class="fa fa-compact-disc nav-icon"></i><span class="nav-text">Albuns</span></a>
+          </li>
+          <li class="nav-item" data-section="music-videos">
+            <a href="#"><i class="fa fa-film nav-icon"></i><span class="nav-text">Music Videos</span></a>
+          </li>
+          <li class="nav-item" data-section="videos">
+            <a href="#"><i class="fa fa-video nav-icon"></i><span class="nav-text">Videos</span></a>
+          </li>
+          <li class="nav-item" data-section="top-videos">
+            <a href="#"><i class="fa fa-arrow-trend-up nav-icon"></i><span class="nav-text">Top Videos</span></a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <section class="content">
+      <div id="home" class="section active-section">
+        <div class="left-content">
+          <div class="slider-container">
+            <h1>Top Playlists</h1>
+            <div class="swiper">
+              <div class="swiper-wrapper" id="swiper-wrapper"></div>
+              <div class="swiper-pagination"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-content">
+          <div class="recommended-songs">
+            <h1>Musicas Recentes</h1>
+            <div class="song-container" id="recent-songs"></div>
+          </div>
+
+          <div class="music-player" id="audio-player">
+            <div class="album-cover">
+              <img src="https://picsum.photos/seed/cover/120/120" id="rotatingImage" alt="cover"/>
+              <span class="point"></span>
+            </div>
+            <h2 id="player-title">Selecione uma musica</h2>
+            <p id="player-artist">-</p>
+            <audio id="song"></audio>
+            <input type="range" value="0" id="progress"/>
+            <div class="controls">
+              <button class="backward"><i class="fa-solid fa-backward"></i></button>
+              <button class="play-pause-btn"><i class="fa-solid fa-play" id="controlIcon"></i></button>
+              <button class="forward"><i class="fa-solid fa-forward"></i></button>
+            </div>
+          </div>
+
+          <div class="video-player hidden" id="video-player">
+            <div class="video-header">
+              <h2 id="video-title">Reproduzindo</h2>
+              <button onclick="closeVideoPlayer()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="video-frame">
+              <iframe id="video-iframe" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="my-songs" class="section">
+        <h1>Minhas Musicas</h1>
+        <div class="add-item-bar">
+          <input type="text" id="song-title-input" placeholder="Titulo da musica"/>
+          <input type="text" id="song-artist-input" placeholder="Artista"/>
+          <input type="text" id="song-url-input" placeholder="Link (YouTube, Drive ou .mp3)"/>
+          <button onclick="addSong()"><i class="fa fa-plus"></i> Adicionar</button>
+        </div>
+        <div class="song-list" id="my-song-list"></div>
+      </div>
+
+      <div id="top-playlists" class="section">
+        <h1>Top Playlists</h1>
+        <div class="grid-cards" id="playlists-grid"></div>
+      </div>
+
+      <div id="albums" class="section">
+        <h1>Albuns</h1>
+        <div class="album-container containers" id="albums-grid"></div>
+      </div>
+
+      <div id="music-videos" class="section">
+        <h1>Music Videos</h1>
+        <div class="video-grid" id="mv-grid"></div>
+      </div>
+
+      <div id="videos" class="section">
+        <h1>Videos</h1>
+        <div class="add-item-bar">
+          <input type="text" id="video-title-input" placeholder="Titulo do video"/>
+          <input type="text" id="video-url-input" placeholder="Link (YouTube ou Google Drive)"/>
+          <button onclick="addVideo()"><i class="fa fa-plus"></i> Adicionar</button>
+        </div>
+        <div class="video-grid" id="my-video-list"></div>
+      </div>
+
+      <div id="top-videos" class="section">
+        <h1>Top Videos</h1>
+        <div class="video-grid" id="top-videos-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="forum-panel" class="forum-panel hidden">
+    <button class="forum-close" onclick="document.getElementById('forum-panel').classList.add('hidden')">
+      <i class="fa fa-xmark"></i>
+    </button>
+    <div id="forum-container"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
