@@ -2,12 +2,11 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EmpirePlay</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
-  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 </head>
 <body>
   <main>
@@ -15,28 +14,28 @@
       <div>
         <div class="logo">
           <i class="fa-solid fa-crown"></i>
-          <span>Empire<b>Play</b></span>
+          <span><b>Empire</b>Play</span>
         </div>
         <ul>
           <li class="nav-item active" data-section="home">
             <a href="#"><i class="fa fa-house nav-icon"></i><span class="nav-text">Home</span></a>
           </li>
-          <li class="nav-item" data-section="my-songs">
+          <li class="nav-item" data-section="minhas-musicas">
             <a href="#"><i class="fa fa-music nav-icon"></i><span class="nav-text">Minhas Musicas</span></a>
           </li>
-          <li class="nav-item" data-section="top-playlists">
+          <li class="nav-item" data-section="playlists">
             <a href="#"><i class="fa fa-circle-play nav-icon"></i><span class="nav-text">Top Playlists</span></a>
           </li>
           <li class="nav-item" data-section="albums">
-            <a href="#"><i class="fa fa-compact-disc nav-icon"></i><span class="nav-text">Albuns</span></a>
+            <a href="#"><i class="fa fa-compact-disc nav-icon"></i><span class="nav-text">Albums</span></a>
           </li>
-          <li class="nav-item" data-section="music-videos">
-            <a href="#"><i class="fa fa-film nav-icon"></i><span class="nav-text">Music Videos</span></a>
+          <li class="nav-item" data-section="musicvideos">
+            <a href="#"><i class="fa fa-table-cells nav-icon"></i><span class="nav-text">Music Videos</span></a>
           </li>
           <li class="nav-item" data-section="videos">
             <a href="#"><i class="fa fa-video nav-icon"></i><span class="nav-text">Videos</span></a>
           </li>
-          <li class="nav-item" data-section="top-videos">
+          <li class="nav-item" data-section="topvideos">
             <a href="#"><i class="fa fa-arrow-trend-up nav-icon"></i><span class="nav-text">Top Videos</span></a>
           </li>
           <li class="nav-item" data-section="forum">
@@ -47,18 +46,20 @@
     </nav>
 
     <section class="content">
+
+      <!-- HOME -->
       <div id="home" class="section active-section">
         <div class="left-content">
           <div class="slider-container">
-            <h1>Top Playlists</h1>
+            <h1>Lancamentos em Destaque</h1>
             <div class="swiper">
               <div class="swiper-wrapper" id="swiper-wrapper"></div>
               <div class="swiper-pagination"></div>
             </div>
           </div>
 
-          <div class="releases-section">
-            <h1 class="small">Ultimos Lancamentos</h1>
+          <div class="releases">
+            <h1 class="small">Lancamentos Recentes</h1>
             <div class="releases-tabs">
               <button class="releases-tab active" data-cat="musicas" onclick="mudarAbaReleases('musicas')">Musicas</button>
               <button class="releases-tab" data-cat="musicvideos" onclick="mudarAbaReleases('musicvideos')">Music Videos</button>
@@ -66,118 +67,128 @@
             </div>
             <div class="releases-grid" id="releases-grid"></div>
           </div>
+
+          <div class="albums">
+            <h1 class="small">Albuns</h1>
+            <div class="album-container" id="albums-grid"></div>
+          </div>
         </div>
 
         <div class="right-content">
-          <div class="recommended-songs glass-card" style="padding:16px;">
-            <h1 class="small">Musicas Recentes</h1>
-            <div class="song-container" id="recent-songs"></div>
-          </div>
+          <h1 class="small">Musicas Recentes</h1>
+          <div class="song-container" id="recent-songs"></div>
 
-          <div class="lyrics-panel glass-card hidden" id="lyrics-panel">
+          <div id="lyrics-panel" class="glass-card lyrics-panel hidden">
             <h3><i class="fa fa-align-left"></i> Letra</h3>
             <pre id="lyrics-text"></pre>
           </div>
-
-          <div id="yt-player-container" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;"></div>
-          <iframe id="drive-audio-iframe" src="" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;" allow="autoplay"></iframe>
-          <audio id="direct-audio"></audio>
         </div>
       </div>
 
-      <div id="my-songs" class="section">
+      <!-- MINHAS MUSICAS -->
+      <div id="minhas-musicas" class="section">
         <h1>Minhas Musicas</h1>
         <div class="add-item-bar">
-          <input type="text" id="song-title-input" placeholder="Titulo da musica"/>
-          <input type="text" id="song-artist-input" placeholder="Artista"/>
-          <input type="text" id="song-url-input" placeholder="Link (YouTube, Drive ou .mp3)"/>
-          <button onclick="addSong()"><i class="fa fa-plus"></i> Adicionar</button>
+          <input type="text" id="song-title-input" placeholder="Titulo da musica" />
+          <input type="text" id="song-artist-input" placeholder="Artista" />
+          <input type="text" id="song-url-input" placeholder="Link do audio" />
+          <button onclick="addSong()">Adicionar</button>
         </div>
         <div class="song-list" id="my-song-list"></div>
       </div>
 
-      <div id="top-playlists" class="section">
+      <!-- TOP PLAYLISTS -->
+      <div id="playlists" class="section">
         <h1>Top Playlists</h1>
         <div class="grid-cards" id="playlists-grid"></div>
       </div>
 
+      <!-- ALBUMS -->
       <div id="albums" class="section">
-        <h1>Albuns</h1>
-        <div class="album-container" id="albums-grid"></div>
+        <h1>Albums</h1>
+        <div class="album-container" id="albums-grid-page"></div>
       </div>
 
-      <div id="music-videos" class="section">
+      <!-- MUSIC VIDEOS -->
+      <div id="musicvideos" class="section">
         <h1>Music Videos</h1>
         <div class="video-grid" id="mv-grid"></div>
       </div>
 
+      <!-- VIDEOS -->
       <div id="videos" class="section">
         <h1>Videos</h1>
         <div class="video-grid" id="my-video-list"></div>
       </div>
 
-      <div id="top-videos" class="section">
+      <!-- TOP VIDEOS -->
+      <div id="topvideos" class="section">
         <h1>Top Videos</h1>
         <div class="video-grid" id="top-videos-grid"></div>
       </div>
 
+      <!-- FORUM -->
       <div id="forum" class="section">
         <div id="forum-topicos-view">
           <h1>Forum</h1>
           <div class="forum-tabs">
-            <button class="forum-tab active" data-cat="musicas" onclick="mudarAbaForum('musicas')">
-              <i class="fa fa-music"></i> Musicas
-            </button>
-            <button class="forum-tab" data-cat="musicvideos" onclick="mudarAbaForum('musicvideos')">
-              <i class="fa fa-film"></i> Music Videos
-            </button>
-            <button class="forum-tab" data-cat="videos" onclick="mudarAbaForum('videos')">
-              <i class="fa fa-video"></i> Videos
-            </button>
+            <button class="forum-tab active" data-cat="musicas" onclick="mudarAbaForum('musicas')">Musicas</button>
+            <button class="forum-tab" data-cat="musicvideos" onclick="mudarAbaForum('musicvideos')">Music Videos</button>
+            <button class="forum-tab" data-cat="videos" onclick="mudarAbaForum('videos')">Videos</button>
           </div>
           <div class="forum-topico-list" id="forum-topicos"></div>
         </div>
 
         <div id="forum-thread-view" class="hidden">
-          <div class="forum-thread-header" id="forum-thread-header"></div>
+          <div id="forum-thread-header"></div>
           <div class="forum-comment-list" id="forum-comment-list"></div>
-          <div class="forum-add-inline">
-            <input type="text" id="forum-nome" placeholder="Seu nome"/>
+          <div class="forum-add-inline glass-card" style="padding:16px;">
+            <input type="text" id="forum-nome" placeholder="Seu nome" />
             <textarea id="forum-texto" placeholder="Escreva um comentario..."></textarea>
             <button onclick="enviarComentario()">Comentar</button>
           </div>
         </div>
       </div>
+
     </section>
 
-    <div class="bottom-player hidden" id="bottom-player">
+    <!-- BOTTOM PLAYER -->
+    <div id="bottom-player" class="bottom-player hidden">
       <div class="bp-info">
-        <img id="player-cover" src="https://via.placeholder.com/56x56?text=%E2%99%AB" alt=""/>
+        <img id="player-cover" src="" alt="" />
         <div class="bp-info-text">
           <h2 id="player-title">-</h2>
           <p id="player-artist">-</p>
         </div>
       </div>
+
       <div class="bp-center">
         <div class="bp-controls">
-          <button id="lyrics-btn" onclick="toggleLyrics()"><i class="fa fa-align-left"></i></button>
-          <button class="bp-play-btn" id="play-pause-btn"><i class="fa-solid fa-play" id="controlIcon"></i></button>
-          <button onclick="document.querySelector('.nav-item[data-section=forum]').click()"><i class="fa fa-comments"></i></button>
+          <button id="play-pause-btn"><i class="fa-solid fa-play" id="controlIcon"></i></button>
         </div>
         <div class="bp-progress-row">
           <span id="time-current">0:00</span>
-          <input type="range" value="0" id="progress"/>
+          <input type="range" id="progress" value="0" />
           <span id="time-total">0:00</span>
         </div>
       </div>
+
       <div class="bp-right">
-        <button id="btn-ir-forum-icon" title="Ver comentarios"><i class="fa fa-comment-dots"></i></button>
+        <button onclick="toggleLyrics()"><i class="fa fa-align-left"></i></button>
+        <button id="btn-ir-forum-icon"><i class="fa fa-comments"></i></button>
       </div>
+    </div>
+
+    <!-- Players ocultos -->
+    <audio id="direct-audio"></audio>
+    <div id="yt-player-container" style="width:1px; height:1px; position:fixed; bottom:0; right:0; overflow:hidden;"></div>
+    <div id="drive-iframe-wrap" class="hidden" style="position:fixed; bottom:84px; right:16px; width:1px; height:1px; overflow:hidden;">
+      <iframe id="drive-iframe" src="" allow="autoplay" style="width:1px; height:1px; border:0;" title="drive-player"></iframe>
     </div>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
