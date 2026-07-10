@@ -212,7 +212,12 @@ function playSong(rawSource, title, artist, cover, lyrics) {
   if (src.type === "youtube" && src.id) { currentPlayerType = "youtube"; playYoutubeId(src.id); }
   else if (src.type === "drive" && src.id) {
     currentPlayerType = "drive"; stopAllPlayers();
-    document.getElementById("drive-audio-iframe").src = `https://drive.google.com/file/d/${src.id}/preview`;
+    const iframe = document.getElementById("drive-audio-iframe");
+    iframe.src = `https://drive.google.com/file/d/${src.id}/preview`;
+    clearTimeout(window._driveCheckTimeout);
+    window._driveCheckTimeout = setTimeout(() => {
+      alert("Este arquivo do Google Drive nao pode ser reproduzido.\n\nProvavel causa: o arquivo nao esta compartilhado como \"Qualquer pessoa com o link\".\n\nPeca para o dono do arquivo mudar a permissao de compartilhamento no Google Drive.");
+    }, 4000);
   } else if (src.type === "direct") {
     currentPlayerType = "direct"; stopAllPlayers();
     const audioEl = document.getElementById("direct-audio");
@@ -227,6 +232,10 @@ function toggleLyrics() {
   document.getElementById("lyrics-text").textContent = currentLyrics || "Letra nao disponivel para este item.";
   panel.classList.toggle("hidden");
 }
+
+document.getElementById("drive-audio-iframe").addEventListener("load", () => {
+  clearTimeout(window._driveCheckTimeout);
+});
 
 document.getElementById("play-pause-btn").addEventListener("click", () => {
   const icon = document.getElementById("controlIcon");
