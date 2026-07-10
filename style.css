@@ -121,6 +121,7 @@ h1.small { font-size: 1.05rem; margin-bottom: 12px; }
 .lyrics-panel { margin-top: 14px; padding: 18px; max-height: 340px; overflow-y: auto; }
 .lyrics-panel h3 { font-size: 0.95rem; margin-bottom: 10px; color: var(--spotify-green); }
 .lyrics-panel pre { white-space: pre-wrap; font-family: inherit; font-size: 0.85rem; line-height: 1.6; opacity: 0.85; }
+
 .bottom-player {
   grid-column: 1 / -1; grid-row: 2 / 3;
   display: grid; grid-template-columns: 280px 1fr 200px; align-items: center; gap: 20px;
@@ -201,6 +202,7 @@ h1.small { font-size: 1.05rem; margin-bottom: 12px; }
 .song-row-info { flex: 1; }
 .song-row-info h3 { font-size: 0.9rem; font-weight: 700; }
 .song-row-info p { font-size: 0.76rem; opacity: 0.55; }
+
 .forum-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
 .forum-tab {
   display: flex; align-items: center; gap: 8px;
@@ -220,12 +222,8 @@ h1.small { font-size: 1.05rem; margin-bottom: 12px; }
 .forum-topico-card h3 { font-size: 0.9rem; font-weight: 700; }
 .forum-topico-card p { font-size: 0.78rem; opacity: 0.55; }
 
-.forum-thread-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
-.forum-thread-header img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; }
-.forum-thread-header h2 { font-size: 1.1rem; }
-.forum-thread-header p { font-size: 0.8rem; opacity: 0.55; }
-.forum-back { background: var(--glass-bg); border: 1px solid var(--glass-border); color: #fff; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; }
-.forum-play-btn { margin-left: auto; background: var(--spotify-green); border: none; color: #063; padding: 9px 18px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.forum-thread-header { display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px; }
+.forum-back { background: var(--glass-bg); border: 1px solid var(--glass-border); color: #fff; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; align-self: flex-start; }
 
 .forum-comment-list { max-width: 720px; margin-bottom: 20px; }
 .forum-comment { padding: 12px 14px; margin-bottom: 8px; border-radius: 10px; background: var(--glass-bg); }
@@ -264,16 +262,19 @@ h1.small { font-size: 1.05rem; margin-bottom: 12px; }
   .bottom-player { grid-template-columns: 1fr; height: auto; gap: 10px; padding: 12px; }
   .bp-right { display: none; }
 }
+
 .forum-topico-principal {
-  display: flex; align-items: center; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 16px; margin-bottom: 26px; max-width: 420px;
 }
 .forum-topico-capa {
-  width: 140px; height: 140px; border-radius: 14px; object-fit: cover;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  width: 100%; max-width: 320px; aspect-ratio: 1; border-radius: 18px; object-fit: cover;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
 }
-.forum-topico-info { flex: 1; min-width: 200px; }
+.forum-topico-info { width: 100%; text-align: center; }
 .forum-topico-info h2 { font-size: 1.5rem; margin-bottom: 6px; }
 .forum-topico-info p { font-size: 0.9rem; opacity: 0.6; margin-bottom: 14px; }
+.forum-topico-info .forum-play-btn { margin: 0 auto; }
 
 .forum-letra-box {
   max-width: 720px; padding: 20px; margin-bottom: 24px;
@@ -283,4 +284,17 @@ h1.small { font-size: 1.05rem; margin-bottom: 12px; }
 .forum-letra-box h3 { font-size: 0.95rem; color: var(--spotify-green); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .forum-letra-box pre {
   white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; line-height: 1.7; opacity: 0.9;
+}
+
+.forum-play-btn { background: var(--spotify-green); border: none; color: #063; padding: 10px 26px; border-radius: 24px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.95rem; }
+
+.forum-thread-body {
+  display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;
+}
+.forum-thread-body .forum-topico-principal { margin-bottom: 0; }
+.forum-thread-body .forum-letra-box { flex: 1; min-width: 280px; margin-bottom: 0; max-height: 460px; }
+
+@media (max-width: 800px) {
+  .forum-thread-body { flex-direction: column; }
+  .forum-topico-principal { max-width: 100%; }
 }
