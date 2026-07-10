@@ -264,3 +264,23 @@ h1.small { font-size: 1.05rem; margin-bottom: 12px; }
   .bottom-player { grid-template-columns: 1fr; height: auto; gap: 10px; padding: 12px; }
   .bp-right { display: none; }
 }
+.forum-topico-principal {
+  display: flex; align-items: center; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.forum-topico-capa {
+  width: 140px; height: 140px; border-radius: 14px; object-fit: cover;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+.forum-topico-info { flex: 1; min-width: 200px; }
+.forum-topico-info h2 { font-size: 1.5rem; margin-bottom: 6px; }
+.forum-topico-info p { font-size: 0.9rem; opacity: 0.6; margin-bottom: 14px; }
+
+.forum-letra-box {
+  max-width: 720px; padding: 20px; margin-bottom: 24px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: 14px; backdrop-filter: blur(16px);
+}
+.forum-letra-box h3 { font-size: 0.95rem; color: var(--spotify-green); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.forum-letra-box pre {
+  white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; line-height: 1.7; opacity: 0.9;
+}
