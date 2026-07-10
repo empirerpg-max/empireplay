@@ -1,11 +1,16 @@
 // ============================================================
-//  EmpirePlay - app.js (v2 - correcao de player e forum)
+//  EmpirePlay - app.js (v3)
+//  Player unico (sem previa) + Forum com 3 categorias
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
 
 let musicasDB = [];
+let musicVideosDB = [];
+let videosDB = [];
 let currentTopicoId = null;
+let currentCategoria = "musicas";
+let forumAbaAtiva = "musicas";
 
 // ---------- NAVEGACAO ----------
 document.querySelectorAll(".nav-item").forEach(item => {
@@ -19,12 +24,13 @@ document.querySelectorAll(".nav-item").forEach(item => {
   });
 });
 
-function irParaForum(idTopico) {
+function irParaForum(idTopico, categoria) {
   document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
   document.querySelector('.nav-item[data-section="forum"]').classList.add("active");
   document.querySelectorAll(".section").forEach(s => s.classList.remove("active-section"));
   document.getElementById("forum").classList.add("active-section");
-  abrirTopicoForum(idTopico);
+  mudarAbaForum(categoria || "musicas");
+  abrirTopicoForum(idTopico, categoria || "musicas");
 }
 
 // ---------- HELPERS DE LINK ----------
@@ -67,76 +73,135 @@ function getImageUrl(capa) {
   return s;
 }
 
-// ---------- PLAYER ----------
+// ---------- YOUTUBE IFRAME API ----------
+let ytPlayer = null;
+let ytReady = false;
+let ytPendingId = null;
+
+function onYouTubeIframeAPIReady() {
+  ytReady = true;
+  ytPlayer = new YT.Player('yt-player-container', {
+    height: '1', width: '1',
+    playerVars: { autoplay: 0, controls: 0 },
+    events: {
+      onReady: () => { if (ytPendingId) { playYoutubeId(ytPendingId); ytPendingId = null; } },
+      onStateChange: onYtStateChange
+    }
+  });
+}
+window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+function onYtStateChange(event) {
+  const icon = document.getElementById("controlIcon");
+  if (event.data === YT.PlayerState.PLAYING) {
+    icon.className = "fa-solid fa-pause";
+    startProgressLoop();
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    icon.className = "fa-solid fa-play";
+  } else if (event.data === YT.PlayerState.ENDED) {
+    icon.className = "fa-solid fa-play";
+  }
+}
+
+function playYoutubeId(id) {
+  if (!ytReady || !ytPlayer || !ytPlayer.loadVideoById) { ytPendingId = id; return; }
+  stopAllPlayers();
+  ytPlayer.loadVideoById(id);
+  ytPlayer.playVideo();
+}
+
+let progressInterval;
+function startProgressLoop() {
+  clearInterval(progressInterval);
+  progressInterval = setInterval(() => {
+    if (ytPlayer && ytPlayer.getCurrentTime) {
+      const dur = ytPlayer.getDuration();
+      const cur = ytPlayer.getCurrentTime();
+      const progress = document.getElementById("progress");
+      if (dur) { progress.max = dur; progress.value = cur; }
+    }
+  }, 500);
+}
+
+function stopAllPlayers() {
+  clearInterval(progressInterval);
+  if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+  const driveIframe = document.getElementById("drive-audio-iframe");
+  if (driveIframe) driveIframe.src = "";
+  const directAudio = document.getElementById("direct-audio");
+  if (directAudio) directAudio.pause();
+}
+
+// ---------- PLAYER UNICO (sem previa visual) ----------
+let currentPlayerType = null;
+
 function playSong(rawSource, title, artist, cover) {
   const src = detectSource(rawSource);
-  const player = document.getElementById("video-player");
-  const iframe = document.getElementById("video-iframe");
-  const titleEl = document.getElementById("video-title");
-  const artistEl = document.getElementById("video-artist");
-  const coverImg = document.getElementById("video-cover");
-
-  let embedUrl = null;
-  if (src.type === "youtube" && src.id) {
-    embedUrl = `https://www.youtube.com/embed/${src.id}?autoplay=1`;
-  } else if (src.type === "drive" && src.id) {
-    embedUrl = `https://drive.google.com/file/d/${src.id}/preview`;
-  } else if (src.type === "direct") {
-    playDirectAudio(src.url, title, artist, cover);
-    return;
-  }
-
-  if (!embedUrl) {
-    alert("Nao foi possivel identificar o link de reproducao.");
-    return;
-  }
-
-  player.classList.remove("hidden");
-  document.getElementById("audio-player").classList.add("hidden");
-  iframe.src = embedUrl;
-  titleEl.textContent = title || "-";
-  if (artistEl) artistEl.textContent = artist || "";
-  if (coverImg) coverImg.src = getImageUrl(cover) || "https://via.placeholder.com/60x60?text=%E2%99%AB";
-}
-
-function playDirectAudio(url, title, artist, cover) {
-  document.getElementById("video-player").classList.add("hidden");
-  const audioPlayer = document.getElementById("audio-player");
-  audioPlayer.classList.remove("hidden");
-  const audioEl = document.getElementById("song");
-  audioEl.src = url;
-  audioEl.play();
+  document.getElementById("music-player").classList.remove("hidden");
   document.getElementById("player-title").textContent = title || "-";
   document.getElementById("player-artist").textContent = artist || "-";
-  const img = document.getElementById("rotatingImage");
-  if (img) img.src = getImageUrl(cover) || img.src;
+  document.getElementById("player-cover").src = getImageUrl(cover) || "https://via.placeholder.com/120x120?text=%E2%99%AB";
   document.getElementById("controlIcon").className = "fa-solid fa-pause";
+
+  if (src.type === "youtube" && src.id) {
+    currentPlayerType = "youtube";
+    playYoutubeId(src.id);
+  } else if (src.type === "drive" && src.id) {
+    currentPlayerType = "drive";
+    stopAllPlayers();
+    document.getElementById("drive-audio-iframe").src = `https://drive.google.com/file/d/${src.id}/preview`;
+  } else if (src.type === "direct") {
+    currentPlayerType = "direct";
+    stopAllPlayers();
+    const audioEl = document.getElementById("direct-audio");
+    audioEl.src = src.url;
+    audioEl.play();
+  } else {
+    alert("Nao foi possivel identificar o link de reproducao.");
+  }
 }
 
-function closeVideoPlayer() {
-  document.getElementById("video-player").classList.add("hidden");
-  document.getElementById("video-iframe").src = "";
-}
+document.getElementById("play-pause-btn").addEventListener("click", () => {
+  const icon = document.getElementById("controlIcon");
+  if (currentPlayerType === "youtube" && ytPlayer) {
+    const state = ytPlayer.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) { ytPlayer.pauseVideo(); icon.className = "fa-solid fa-play"; }
+    else { ytPlayer.playVideo(); icon.className = "fa-solid fa-pause"; }
+  } else if (currentPlayerType === "direct") {
+    const audioEl = document.getElementById("direct-audio");
+    if (audioEl.paused) { audioEl.play(); icon.className = "fa-solid fa-pause"; }
+    else { audioEl.pause(); icon.className = "fa-solid fa-play"; }
+  } else if (currentPlayerType === "drive") {
+    const iframe = document.getElementById("drive-audio-iframe");
+    if (iframe.src) {
+      iframe.src = "";
+      icon.className = "fa-solid fa-play";
+    } else {
+      icon.className = "fa-solid fa-pause";
+    }
+  }
+});
 
-const audioEl = document.getElementById("song");
-const progress = document.getElementById("progress");
-const controlIcon = document.getElementById("controlIcon");
-if (audioEl) {
-  document.querySelector(".play-pause-btn")?.addEventListener("click", () => {
-    if (audioEl.paused) { audioEl.play(); controlIcon.className = "fa-solid fa-pause"; }
-    else { audioEl.pause(); controlIcon.className = "fa-solid fa-play"; }
-  });
-  audioEl.addEventListener("timeupdate", () => { if (!audioEl.paused) progress.value = audioEl.currentTime; });
-  audioEl.addEventListener("loadedmetadata", () => { progress.max = audioEl.duration; });
-  progress?.addEventListener("input", () => { audioEl.currentTime = progress.value; });
-}
+document.getElementById("progress").addEventListener("input", function () {
+  if (currentPlayerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(this.value, true);
+  } else if (currentPlayerType === "direct") {
+    document.getElementById("direct-audio").currentTime = this.value;
+  }
+});
 
 // ---------- CARREGAR DADOS DA PLANILHA ----------
-async function carregarMusicas() {
+async function carregarTudo() {
   try {
-    const res = await fetch(`${API_URL}?action=musicas`);
-    const json = await res.json();
-    musicasDB = json.data || [];
+    const [rMusicas, rMV, rVideos] = await Promise.all([
+      fetch(`${API_URL}?action=conteudo&categoria=musicas`).then(r => r.json()),
+      fetch(`${API_URL}?action=conteudo&categoria=musicvideos`).then(r => r.json()),
+      fetch(`${API_URL}?action=conteudo&categoria=videos`).then(r => r.json())
+    ]);
+    musicasDB = rMusicas.data || [];
+    musicVideosDB = rMV.data || [];
+    videosDB = rVideos.data || [];
+
     renderRecentSongsFromSheet();
     renderAlbumsFromSheet();
     renderSwiperSlides();
@@ -145,12 +210,13 @@ async function carregarMusicas() {
     renderTopVideosFromWeeks();
     renderForumTopicos();
   } catch (err) {
-    console.error("Erro ao carregar musicas:", err);
+    console.error("Erro ao carregar dados:", err);
   }
 }
 
-function coverOrFallback(m) {
-  return getImageUrl(m.capa_da_musica) || `https://picsum.photos/seed/${encodeURIComponent(m.id_do_topico || m.nome_da_musica)}/300/300`;
+function coverOrFallback(item) {
+  const capa = item.capa_da_musica || item.capa;
+  return getImageUrl(capa) || `https://picsum.photos/seed/${encodeURIComponent(item.id_do_topico || item.nome_da_musica || Math.random())}/300/300`;
 }
 
 function renderRecentSongsFromSheet() {
@@ -203,38 +269,59 @@ function renderPlaylistsFromWeeks() {
 }
 
 function renderMusicVideosFromSheet() {
-  document.getElementById("mv-grid").innerHTML = musicasDB.map(m => `
-    <div class="video-card" onclick="tocarMusica('${m.id_do_topico}')">
+  document.getElementById("mv-grid").innerHTML = musicVideosDB.map(v => `
+    <div class="video-card" onclick="tocarVideo('${v.id_do_topico}','musicvideos')">
       <div class="video-thumb">
-        <img src="${coverOrFallback(m)}" onerror="this.src='https://via.placeholder.com/320x180?text=%E2%99%AB'" alt="${m.nome_da_musica}"/>
+        <img src="${coverOrFallback(v)}" onerror="this.src='https://via.placeholder.com/320x180?text=%E2%99%AB'" alt=""/>
         <div class="play-overlay"><i class="fa fa-play"></i></div>
       </div>
-      <div class="video-info"><h3>${m.nome_da_musica}</h3><p>${m.act_principal || ""}</p></div>
+      <div class="video-info"><h3>${v.tipo_de_clipe || "Music Video"}</h3><p>${v.genero || ""}</p></div>
+    </div>`).join("");
+
+  document.getElementById("my-video-list").innerHTML = videosDB.map(v => `
+    <div class="video-card" onclick="tocarVideo('${v.id_do_topico}','videos')">
+      <div class="video-thumb">
+        <img src="${coverOrFallback(v)}" onerror="this.src='https://via.placeholder.com/320x180?text=%E2%99%AB'" alt=""/>
+        <div class="play-overlay"><i class="fa fa-play"></i></div>
+      </div>
+      <div class="video-info"><h3>${v.tipo || "Video"}</h3></div>
     </div>`).join("");
 }
 
 function renderTopVideosFromWeeks() {
-  const ordenadas = [...musicasDB].sort((a,b) => (parseInt(b.weeks_video)||0) - (parseInt(a.weeks_video)||0)).slice(0, 12);
-  document.getElementById("top-videos-grid").innerHTML = ordenadas.map(m => `
-    <div class="video-card" onclick="tocarMusica('${m.id_do_topico}')">
+  const ordenadas = [...musicVideosDB].sort((a,b) => (parseInt(b.weeks_video)||0) - (parseInt(a.weeks_video)||0)).slice(0, 12);
+  document.getElementById("top-videos-grid").innerHTML = ordenadas.map(v => `
+    <div class="video-card" onclick="tocarVideo('${v.id_do_topico}','musicvideos')">
       <div class="video-thumb">
-        <img src="${coverOrFallback(m)}" onerror="this.src='https://via.placeholder.com/320x180?text=%E2%99%AB'" alt="${m.nome_da_musica}"/>
+        <img src="${coverOrFallback(v)}" onerror="this.src='https://via.placeholder.com/320x180?text=%E2%99%AB'" alt=""/>
         <div class="play-overlay"><i class="fa fa-play"></i></div>
       </div>
-      <div class="video-info"><h3>${m.nome_da_musica}</h3><p>${m.weeks_video || 0} semanas video</p></div>
+      <div class="video-info"><h3>${v.tipo_de_clipe || "Music Video"}</h3><p>${v.weeks_video || 0} semanas video</p></div>
     </div>`).join("");
 }
 
-// ---------- TOCAR MUSICA ----------
+// ---------- TOCAR MUSICA / VIDEO ----------
 function tocarMusica(idTopico) {
   currentTopicoId = idTopico;
+  currentCategoria = "musicas";
   const musica = musicasDB.find(m => String(m.id_do_topico) === String(idTopico));
   if (!musica) return;
   playSong(musica.id_do_arquivo, musica.nome_da_musica, musica.act_principal, musica.capa_da_musica);
-  mostrarBotaoForum(musica);
+  mostrarBotaoForum(musica.nome_da_musica, musica.id_do_topico, "musicas");
 }
 
-function mostrarBotaoForum(musica) {
+function tocarVideo(idTopico, categoria) {
+  currentTopicoId = idTopico;
+  currentCategoria = categoria;
+  const db = categoria === "musicvideos" ? musicVideosDB : videosDB;
+  const item = db.find(v => String(v.id_do_topico) === String(idTopico));
+  if (!item) return;
+  const titulo = item.tipo_de_clipe || item.tipo || "Video";
+  playSong(item.id_do_arquivo, titulo, "", item.capa);
+  mostrarBotaoForum(titulo, item.id_do_topico, categoria);
+}
+
+function mostrarBotaoForum(titulo, idTopico, categoria) {
   let btn = document.getElementById("btn-ir-forum");
   if (!btn) {
     btn = document.createElement("button");
@@ -242,46 +329,66 @@ function mostrarBotaoForum(musica) {
     btn.className = "btn-forum-link";
     document.querySelector(".right-content").appendChild(btn);
   }
-  btn.innerHTML = `<i class="fa fa-comments"></i> Ver comentarios de "${musica.nome_da_musica}"`;
-  btn.onclick = () => irParaForum(musica.id_do_topico);
+  btn.innerHTML = `<i class="fa fa-comments"></i> Ver comentarios de "${titulo}"`;
+  btn.onclick = () => irParaForum(idTopico, categoria);
   btn.style.display = "flex";
 }
 
-// ---------- FORUM ----------
+// ---------- FORUM COM ABAS ----------
+function mudarAbaForum(categoria) {
+  forumAbaAtiva = categoria;
+  document.querySelectorAll(".forum-tab").forEach(t => t.classList.remove("active"));
+  document.querySelector(`.forum-tab[data-cat="${categoria}"]`).classList.add("active");
+  renderForumTopicos();
+}
+
 function renderForumTopicos() {
   const el = document.getElementById("forum-topicos");
   if (!el) return;
-  el.innerHTML = musicasDB.map(m => `
-    <div class="forum-topico-card" onclick="abrirTopicoForum('${m.id_do_topico}')">
-      <img src="${coverOrFallback(m)}" onerror="this.src='https://via.placeholder.com/60x60?text=%E2%99%AB'" alt=""/>
+
+  let db, nomeCampo, subCampo;
+  if (forumAbaAtiva === "musicas") { db = musicasDB; nomeCampo = "nome_da_musica"; subCampo = "act_principal"; }
+  else if (forumAbaAtiva === "musicvideos") { db = musicVideosDB; nomeCampo = "tipo_de_clipe"; subCampo = "genero"; }
+  else { db = videosDB; nomeCampo = "tipo"; subCampo = ""; }
+
+  el.innerHTML = db.map(item => `
+    <div class="forum-topico-card" onclick="abrirTopicoForum('${item.id_do_topico}','${forumAbaAtiva}')">
+      <img src="${coverOrFallback(item)}" onerror="this.src='https://via.placeholder.com/60x60?text=%E2%99%AB'" alt=""/>
       <div>
-        <h3>${m.nome_da_musica}</h3>
-        <p>${m.act_principal || ""}</p>
+        <h3>${item[nomeCampo] || "Sem titulo"}</h3>
+        <p>${subCampo ? (item[subCampo] || "") : ""}</p>
       </div>
       <i class="fa fa-chevron-right"></i>
-    </div>`).join("");
+    </div>`).join("") || "<p class='forum-empty'>Nenhum topico ainda.</p>";
 }
 
-async function abrirTopicoForum(idTopico) {
+async function abrirTopicoForum(idTopico, categoria) {
   currentTopicoId = idTopico;
-  const musica = musicasDB.find(m => String(m.id_do_topico) === String(idTopico));
-  if (!musica) return;
+  currentCategoria = categoria;
+
+  let db, nomeCampo, subCampo, playFn;
+  if (categoria === "musicas") { db = musicasDB; nomeCampo = "nome_da_musica"; subCampo = "act_principal"; playFn = `tocarMusica('${idTopico}')`; }
+  else if (categoria === "musicvideos") { db = musicVideosDB; nomeCampo = "tipo_de_clipe"; subCampo = "genero"; playFn = `tocarVideo('${idTopico}','musicvideos')`; }
+  else { db = videosDB; nomeCampo = "tipo"; subCampo = ""; playFn = `tocarVideo('${idTopico}','videos')`; }
+
+  const item = db.find(m => String(m.id_do_topico) === String(idTopico));
+  if (!item) return;
 
   document.getElementById("forum-topicos-view").classList.add("hidden");
   document.getElementById("forum-thread-view").classList.remove("hidden");
 
   document.getElementById("forum-thread-header").innerHTML = `
     <button class="forum-back" onclick="voltarListaForum()"><i class="fa fa-arrow-left"></i> Topicos</button>
-    <img src="${coverOrFallback(musica)}" onerror="this.src='https://via.placeholder.com/60x60?text=%E2%99%AB'" alt=""/>
-    <div><h2>${musica.nome_da_musica}</h2><p>${musica.act_principal || ""}</p></div>
-    <button class="forum-play-btn" onclick="tocarMusica('${musica.id_do_topico}')"><i class="fa fa-play"></i> Tocar</button>
+    <img src="${coverOrFallback(item)}" onerror="this.src='https://via.placeholder.com/60x60?text=%E2%99%AB'" alt=""/>
+    <div><h2>${item[nomeCampo] || "Sem titulo"}</h2><p>${subCampo ? (item[subCampo] || "") : ""}</p></div>
+    <button class="forum-play-btn" onclick="${playFn}"><i class="fa fa-play"></i> Tocar</button>
   `;
 
   const listEl = document.getElementById("forum-comment-list");
   listEl.innerHTML = "<p>Carregando comentarios...</p>";
 
   try {
-    const res = await fetch(`${API_URL}?action=comentarios&idTopico=${idTopico}`);
+    const res = await fetch(`${API_URL}?action=comentarios&categoria=${categoria}&idTopico=${idTopico}`);
     const json = await res.json();
     const comentarios = json.data || [];
     listEl.innerHTML = comentarios.length
@@ -312,6 +419,7 @@ async function enviarComentario() {
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({
       action: "novoComentario",
+      categoria: currentCategoria,
       idTopico: currentTopicoId,
       nomeJogador: nome,
       comentario: texto
@@ -319,7 +427,7 @@ async function enviarComentario() {
   });
 
   document.getElementById("forum-texto").value = "";
-  abrirTopicoForum(currentTopicoId);
+  abrirTopicoForum(currentTopicoId, currentCategoria);
 }
 
 // ---------- SWIPER ----------
@@ -331,5 +439,30 @@ window.swiperInstance = new Swiper(".swiper", {
   pagination: { el: ".swiper-pagination" },
 });
 
+// ---------- MINHAS MUSICAS (locais) ----------
+let mySongs = [];
+function renderMySongs() {
+  const el = document.getElementById("my-song-list");
+  if (!el) return;
+  el.innerHTML = mySongs.map((s, i) => `
+    <div class="song-row" onclick="playSong('${s.url}','${s.title}','${s.artist}')">
+      <div class="type-icon type-audio"><i class="fa fa-music"></i></div>
+      <div class="song-row-info"><h3>${s.title}</h3><p>${s.artist}</p></div>
+      <button onclick="event.stopPropagation();mySongs.splice(${i},1);renderMySongs()" style="background:none;border:none;color:#ff6b6b;cursor:pointer;"><i class="fa fa-trash"></i></button>
+    </div>`).join("");
+}
+function addSong() {
+  const title = document.getElementById("song-title-input").value.trim();
+  const artist = document.getElementById("song-artist-input").value.trim();
+  const url = document.getElementById("song-url-input").value.trim();
+  if (!url) return;
+  mySongs.push({ title: title || "Sem titulo", artist: artist || "Desconhecido", url });
+  renderMySongs();
+  document.getElementById("song-title-input").value = "";
+  document.getElementById("song-artist-input").value = "";
+  document.getElementById("song-url-input").value = "";
+}
+
 // ---------- INIT ----------
-carregarMusicas();
+carregarTudo();
+renderMySongs();
