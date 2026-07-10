@@ -1,5 +1,5 @@
 // ============================================================
-//  EmpirePlay - app.js (v7 - Drive via iframe /preview visivel)
+//  EmpirePlay - app.js (v8 - Drive iframe mascarado no botao play)
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
@@ -252,11 +252,14 @@ document.getElementById("play-pause-btn").addEventListener("click", () => {
     const state = ytPlayer.getPlayerState();
     if (state === YT.PlayerState.PLAYING) { ytPlayer.pauseVideo(); icon.className = "fa-solid fa-play"; }
     else { ytPlayer.playVideo(); icon.className = "fa-solid fa-pause"; }
-  } else if (currentPlayerType === "direct" || currentPlayerType === "drive") {
+  } else if (currentPlayerType === "direct") {
     const audioEl = document.getElementById("direct-audio");
     if (audioEl.paused) { audioEl.play(); icon.className = "fa-solid fa-pause"; }
     else { audioEl.pause(); icon.className = "fa-solid fa-play"; }
   }
+  // Quando currentPlayerType === "drive", o clique atravessa visualmente
+  // para o iframe mascarado por baixo (via CSS pointer-events), entao
+  // este bloco nao precisa fazer nada - o Google Drive assume o controle.
 });
 
 document.getElementById("progress").addEventListener("input", function () {
@@ -286,11 +289,6 @@ async function carregarTudo() {
     musicasDB = rMusicas.data || [];
     musicVideosDB = rMV.data || [];
     videosDB = rVideos.data || [];
-
-    console.log("Exemplo Musica:", musicasDB[0]);
-    console.log("Exemplo MusicVideo:", musicVideosDB[0]);
-    console.log("Exemplo Video:", videosDB[0]);
-
     renderRecentSongsFromSheet();
     renderAlbumsFromSheet();
     renderSwiperSlides();
@@ -402,7 +400,6 @@ function renderReleases() {
     db = videosDB; nomeFn = F.tipo; subFn = () => "";
     clickFn = (id) => `tocarVideo('${id}','videos')`;
   }
-
   const ordenados = [...db].sort((a,b) => parseDataLancamento(b) - parseDataLancamento(a)).slice(0, 10);
   el.innerHTML = ordenados.map(item => `
     <div class="release-card" onclick="${clickFn(F.idTopico(item))}">
@@ -450,7 +447,6 @@ function renderForumTopicos() {
   if (forumAbaAtiva === "musicas") { db = musicasDB; nomeFn = F.nomeMusica; subFn = F.actPrincipal; }
   else if (forumAbaAtiva === "musicvideos") { db = musicVideosDB; nomeFn = F.tipoClipe; subFn = F.generoVideo; }
   else { db = videosDB; nomeFn = F.tipo; subFn = () => ""; }
-
   el.innerHTML = db.map(item => `
     <div class="forum-topico-card" onclick="abrirTopicoForum('${F.idTopico(item)}','${forumAbaAtiva}')">
       <img ${imgWithFallback(F.capa(item), F.idTopico(item))} alt=""/>
@@ -472,14 +468,11 @@ async function abrirTopicoForum(idTopico, categoria) {
     db = videosDB; nomeFn = F.tipo; subFn = () => "";
     playFn = `tocarVideo('${idTopico}','videos')`;
   }
-
   const item = db.find(m => String(F.idTopico(m)) === String(idTopico));
   if (!item) return;
   letraTxt = categoria === "musicas" ? F.letra(item) : "";
-
   document.getElementById("forum-topicos-view").classList.add("hidden");
   document.getElementById("forum-thread-view").classList.remove("hidden");
-
   document.getElementById("forum-thread-header").innerHTML = `
     <button class="forum-back" onclick="voltarListaForum()"><i class="fa fa-arrow-left"></i> Topicos</button>
     <div class="forum-thread-body">
@@ -494,7 +487,6 @@ async function abrirTopicoForum(idTopico, categoria) {
       ${letraTxt ? `<div class="forum-letra-box"><h3><i class="fa fa-align-left"></i> Letra</h3><pre>${letraTxt}</pre></div>` : ""}
     </div>
   `;
-
   const listEl = document.getElementById("forum-comment-list");
   listEl.innerHTML = "<p>Carregando comentarios...</p>";
   try {
