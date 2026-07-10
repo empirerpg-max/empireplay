@@ -1,4 +1,13 @@
+// ============================================================
+//  EmpirePlay - app.js (v7 - Drive via iframe /preview)
+// ============================================================
+
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
+
+function driveAudioSrc(driveUrl) {
+  const id = extractDriveId(driveUrl) || driveUrl;
+  return `https://drive.google.com/file/d/${id}/preview`;
+}
 
 let musicasDB = [];
 let musicVideosDB = [];
@@ -185,6 +194,10 @@ function stopAllPlayers() {
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
   const directAudio = document.getElementById("direct-audio");
   if (directAudio) { directAudio.pause(); directAudio.src = ""; }
+  const driveWrap = document.getElementById("drive-iframe-wrap");
+  const driveIframe = document.getElementById("drive-iframe");
+  if (driveWrap) driveWrap.classList.add("hidden");
+  if (driveIframe) driveIframe.src = "";
 }
 
 let currentPlayerType = null;
@@ -207,19 +220,19 @@ function playSong(rawSource, title, artist, cover, lyrics) {
   currentLyrics = lyrics || "";
   document.getElementById("lyrics-panel").classList.add("hidden");
 
-  if (src.type === "youtube" && src.id) { currentPlayerType = "youtube"; playYoutubeId(src.id); }
+  if (src.type === "youtube" && src.id) {
+    currentPlayerType = "youtube";
+    document.getElementById("drive-iframe-wrap").classList.add("hidden");
+    document.getElementById("drive-iframe").src = "";
+    playYoutubeId(src.id);
+  }
   else if (src.type === "drive" && src.id) {
     currentPlayerType = "drive"; stopAllPlayers();
-    const audioEl = document.getElementById("direct-audio");
-    audioEl.src = `https://drive.google.com/uc?export=download&confirm=t&id=${src.id}`;
-    audioEl.play().catch(() => {
-      audioEl.src = `https://drive.google.com/uc?export=download&id=${src.id}`;
-      audioEl.play().catch(() => {
-        alert("Este arquivo do Google Drive nao pode ser reproduzido.\n\nProvavel causa: o arquivo nao esta compartilhado como \"Qualquer pessoa com o link\", ou o formato do arquivo nao e suportado pelo navegador.\n\nVerifique a permissao no Google Drive (clique direito no arquivo > Compartilhar > Qualquer pessoa com o link).");
-      });
-    });
+    document.getElementById("drive-iframe-wrap").classList.remove("hidden");
+    document.getElementById("drive-iframe").src = `https://drive.google.com/file/d/${src.id}/preview`;
   } else if (src.type === "direct") {
     currentPlayerType = "direct"; stopAllPlayers();
+    document.getElementById("drive-iframe-wrap").classList.add("hidden");
     const audioEl = document.getElementById("direct-audio");
     audioEl.src = src.url; audioEl.play();
   } else {
