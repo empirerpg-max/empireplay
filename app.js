@@ -1,7 +1,3 @@
-// ============================================================
-//  EmpirePlay - app.js (v4 - Spotify style + glassmorphism)
-// ============================================================
-
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
 
 let musicasDB = [];
@@ -13,7 +9,47 @@ let forumAbaAtiva = "musicas";
 let releasesAbaAtiva = "musicas";
 let currentLyrics = "";
 
-// ---------- NAVEGACAO ----------
+function norm(s) {
+  return String(s).toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function getField(item, ...aliases) {
+  if (!item) return "";
+  const keys = Object.keys(item);
+  const normKeys = keys.map(k => ({ orig: k, norm: norm(k) }));
+  for (const alias of aliases) {
+    const target = norm(alias);
+    const found = normKeys.find(k => k.norm === target);
+    if (found && item[found.orig] !== undefined && item[found.orig] !== "" && item[found.orig] !== null) {
+      return item[found.orig];
+    }
+  }
+  return "";
+}
+
+const F = {
+  data: (i) => getField(i, "data_de_lancamento", "datadelancamento", "data"),
+  idTopico: (i) => getField(i, "id_do_topico", "idtopico", "id_topico"),
+  idArquivo: (i) => getField(i, "id_do_arquivo", "idarquivo", "id_arquivo", "arquivo", "link", "url"),
+  capa: (i) => getField(i, "capa_da_musica", "capadamusica", "capa", "cover"),
+  letra: (i) => getField(i, "letra", "lyrics", "letra_da_musica"),
+  comentariosPara: (i) => getField(i, "comentarios_para", "comentariospara"),
+  idCriador: (i) => getField(i, "id_do_criador", "idcriador"),
+  nomeMusica: (i) => getField(i, "nome_da_musica", "nomedamusica", "nome", "titulo"),
+  tipoSingle: (i) => getField(i, "tipo_de_single", "tipodesingle"),
+  tipoMusica: (i) => getField(i, "tipo_de_musica", "tipodemusica"),
+  album: (i) => getField(i, "album"),
+  weeks: (i) => getField(i, "weeks"),
+  weeksVideo: (i) => getField(i, "weeks_video", "weeksvideo"),
+  actPrincipal: (i) => getField(i, "act_principal", "actprincipal"),
+  generoMusica: (i) => getField(i, "genero_da_musica", "generodamusica", "genero"),
+  tipoClipe: (i) => getField(i, "tipo_de_clipe", "tipodeclipe"),
+  generoVideo: (i) => getField(i, "genero"),
+  tipo: (i) => getField(i, "tipo"),
+};
+
 document.querySelectorAll(".nav-item").forEach(item => {
   item.addEventListener("click", e => {
     e.preventDefault();
@@ -34,7 +70,6 @@ function irParaForum(idTopico, categoria) {
   abrirTopicoForum(idTopico, categoria || "musicas");
 }
 
-// ---------- HELPERS DE LINK ----------
 function extractDriveId(str) {
   if (!str) return null;
   const m = String(str).match(/\/d\/([a-zA-Z0-9_-]+)/) || String(str).match(/id=([a-zA-Z0-9_-]+)/);
@@ -51,14 +86,14 @@ function extractYoutubeId(str) {
 
 function detectSource(str) {
   if (!str) return { type: "none" };
-  const s = String(str);
+  const s = String(str).trim();
   if (s.includes("youtube.com") || s.includes("youtu.be")) return { type: "youtube", id: extractYoutubeId(s) };
   if (s.includes("drive.google.com")) return { type: "drive", id: extractDriveId(s) };
   if (s.match(/\.(mp3|wav|ogg|aac)(\?|$)/i)) return { type: "direct", url: s };
-  return { type: "drive", id: s.trim() };
+  if (s.match(/^[a-zA-Z0-9_-]{20,}$/)) return { type: "drive", id: s };
+  return { type: "none" };
 }
 
-// ---------- IMAGEM EM CASCATA (corrige capas quebradas) ----------
 function buildImageCandidates(capa) {
   if (!capa) return [];
   const s = String(capa).trim();
@@ -67,7 +102,7 @@ function buildImageCandidates(capa) {
     candidates.push(s);
     return candidates;
   }
-  const id = extractDriveId(s);
+  const id = extractDriveId(s) || (s.match(/^[a-zA-Z0-9_-]{20,}$/) ? s : null);
   if (id) {
     candidates.push(`https://lh3.googleusercontent.com/d/${id}=w400`);
     candidates.push(`https://drive.google.com/thumbnail?id=${id}&sz=w400`);
@@ -77,13 +112,13 @@ function buildImageCandidates(capa) {
   return candidates;
 }
 
-function imgWithFallback(capa, seed, cssClass) {
+function imgWithFallback(capa, seed) {
   const candidates = buildImageCandidates(capa);
   const finalFallback = `https://picsum.photos/seed/${encodeURIComponent(seed || Math.random())}/300/300`;
   const chain = [...candidates, finalFallback];
   const first = chain.shift();
   const errorChain = chain.map(u => u.replace(/'/g, "\\'")).join("|||");
-  return `data-chain="${errorChain}" src="${first}" onerror="tryNextImg(this)" class="${cssClass||''}"`;
+  return `data-chain="${errorChain}" src="${first}" onerror="tryNextImg(this)"`;
 }
 
 function tryNextImg(imgEl) {
@@ -95,7 +130,6 @@ function tryNextImg(imgEl) {
 }
 window.tryNextImg = tryNextImg;
 
-// ---------- YOUTUBE IFRAME API ----------
 let ytPlayer = null, ytReady = false, ytPendingId = null;
 
 function onYouTubeIframeAPIReady() {
@@ -155,11 +189,12 @@ function stopAllPlayers() {
   if (directAudio) directAudio.pause();
 }
 
-// ---------- PLAYER ----------
 let currentPlayerType = null;
 
 function playSong(rawSource, title, artist, cover, lyrics) {
   const src = detectSource(rawSource);
+  console.log("Tentando tocar:", rawSource, "-> detectado como:", src);
+
   document.getElementById("bottom-player").classList.remove("hidden");
   document.getElementById("player-title").textContent = title || "-";
   document.getElementById("player-artist").textContent = artist || "-";
@@ -183,14 +218,13 @@ function playSong(rawSource, title, artist, cover, lyrics) {
     const audioEl = document.getElementById("direct-audio");
     audioEl.src = src.url; audioEl.play();
   } else {
-    alert("Nao foi possivel identificar o link de reproducao.");
+    alert("Nao foi possivel identificar o link de reproducao. Valor recebido: " + rawSource);
   }
 }
 
 function toggleLyrics() {
   const panel = document.getElementById("lyrics-panel");
-  if (!currentLyrics) { document.getElementById("lyrics-text").textContent = "Letra nao disponivel para este item."; }
-  else { document.getElementById("lyrics-text").textContent = currentLyrics; }
+  document.getElementById("lyrics-text").textContent = currentLyrics || "Letra nao disponivel para este item.";
   panel.classList.toggle("hidden");
 }
 
@@ -216,7 +250,6 @@ document.getElementById("progress").addEventListener("input", function () {
   else if (currentPlayerType === "direct") document.getElementById("direct-audio").currentTime = this.value;
 });
 
-// ---------- CARREGAR DADOS ----------
 async function carregarTudo() {
   try {
     const [rMusicas, rMV, rVideos] = await Promise.all([
@@ -227,6 +260,10 @@ async function carregarTudo() {
     musicasDB = rMusicas.data || [];
     musicVideosDB = rMV.data || [];
     videosDB = rVideos.data || [];
+
+    console.log("Exemplo Musica:", musicasDB[0]);
+    console.log("Exemplo MusicVideo:", musicVideosDB[0]);
+    console.log("Exemplo Video:", videosDB[0]);
 
     renderRecentSongsFromSheet();
     renderAlbumsFromSheet();
@@ -242,35 +279,31 @@ async function carregarTudo() {
 }
 
 function parseDataLancamento(item) {
-  const d = item.data_de_lancamento;
+  const d = F.data(item);
   if (!d) return 0;
   const t = new Date(d).getTime();
   return isNaN(t) ? 0 : t;
-}
-
-function coverAttr(item, cssClass) {
-  const capa = item.capa_da_musica || item.capa;
-  return imgWithFallback(capa, item.id_do_topico || item.nome_da_musica, cssClass);
 }
 
 function renderRecentSongsFromSheet() {
   const el = document.getElementById("recent-songs");
   const ordenadas = [...musicasDB].sort((a,b) => parseDataLancamento(b) - parseDataLancamento(a)).slice(0, 8);
   el.innerHTML = ordenadas.map(m => `
-    <div class="song" onclick="tocarMusica('${m.id_do_topico}')">
-      <div class="song-img"><img ${coverAttr(m)} alt=""/></div>
-      <div class="song-title"><h2>${m.nome_da_musica}</h2><p>${m.act_principal || ""}</p></div>
+    <div class="song" onclick="tocarMusica('${F.idTopico(m)}')">
+      <div class="song-img"><img ${imgWithFallback(F.capa(m), F.idTopico(m))} alt=""/></div>
+      <div class="song-title"><h2>${F.nomeMusica(m)}</h2><p>${F.actPrincipal(m)}</p></div>
     </div>`).join("");
 }
 
 function renderAlbumsFromSheet() {
   const albunsMap = {};
   musicasDB.forEach(m => {
-    if (m.album) albunsMap[m.album] = albunsMap[m.album] || { title: m.album, artist: m.act_principal, item: m };
+    const album = F.album(m);
+    if (album) albunsMap[album] = albunsMap[album] || { title: album, artist: F.actPrincipal(m), item: m };
   });
   document.getElementById("albums-grid").innerHTML = Object.values(albunsMap).map(a => `
     <div class="album">
-      <div class="album-frame"><img ${coverAttr(a.item)} alt="${a.title}"/></div>
+      <div class="album-frame"><img ${imgWithFallback(F.capa(a.item), a.title)} alt="${a.title}"/></div>
       <h2>${a.title}</h2><p>${a.artist}</p>
     </div>`).join("");
 }
@@ -280,49 +313,48 @@ function renderSwiperSlides() {
   const destaques = musicasDB.slice(0, 5);
   wrapper.innerHTML = destaques.map(m => `
     <div class="swiper-slide">
-      <img ${coverAttr(m)} />
+      <img ${imgWithFallback(F.capa(m), F.idTopico(m))} />
       <div class="slide-overlay">
-        <h2>${m.nome_da_musica}</h2>
-        <button onclick="tocarMusica('${m.id_do_topico}')">Ouvir Agora <i class="fa-solid fa-circle-play"></i></button>
+        <h2>${F.nomeMusica(m)}</h2>
+        <button onclick="tocarMusica('${F.idTopico(m)}')">Ouvir Agora <i class="fa-solid fa-circle-play"></i></button>
       </div>
     </div>`).join("");
   if (window.swiperInstance) window.swiperInstance.update();
 }
 
 function renderPlaylistsFromWeeks() {
-  const ordenadas = [...musicasDB].sort((a,b) => (parseInt(b.weeks)||0) - (parseInt(a.weeks)||0)).slice(0, 12);
+  const ordenadas = [...musicasDB].sort((a,b) => (parseInt(F.weeks(b))||0) - (parseInt(F.weeks(a))||0)).slice(0, 12);
   document.getElementById("playlists-grid").innerHTML = ordenadas.map(m => `
-    <div class="playlist-card" onclick="tocarMusica('${m.id_do_topico}')">
-      <img ${coverAttr(m)} alt="${m.nome_da_musica}"/>
-      <h3>${m.nome_da_musica}</h3>
-      <p>${m.weeks || 0} semanas no topo</p>
+    <div class="playlist-card" onclick="tocarMusica('${F.idTopico(m)}')">
+      <img ${imgWithFallback(F.capa(m), F.idTopico(m))} alt="${F.nomeMusica(m)}"/>
+      <h3>${F.nomeMusica(m)}</h3>
+      <p>${F.weeks(m) || 0} semanas no topo</p>
     </div>`).join("");
 }
 
 function renderMusicVideosFromSheet() {
   document.getElementById("mv-grid").innerHTML = musicVideosDB.map(v => `
-    <div class="video-card" onclick="tocarVideo('${v.id_do_topico}','musicvideos')">
-      <div class="video-thumb"><img ${coverAttr(v)} alt=""/><div class="play-overlay"><i class="fa fa-play"></i></div></div>
-      <div class="video-info"><h3>${v.tipo_de_clipe || "Music Video"}</h3><p>${v.genero || ""}</p></div>
+    <div class="video-card" onclick="tocarVideo('${F.idTopico(v)}','musicvideos')">
+      <div class="video-thumb"><img ${imgWithFallback(F.capa(v), F.idTopico(v))} alt=""/><div class="play-overlay"><i class="fa fa-play"></i></div></div>
+      <div class="video-info"><h3>${F.tipoClipe(v) || "Music Video"}</h3><p>${F.generoVideo(v)}</p></div>
     </div>`).join("");
 
   document.getElementById("my-video-list").innerHTML = videosDB.map(v => `
-    <div class="video-card" onclick="tocarVideo('${v.id_do_topico}','videos')">
-      <div class="video-thumb"><img ${coverAttr(v)} alt=""/><div class="play-overlay"><i class="fa fa-play"></i></div></div>
-      <div class="video-info"><h3>${v.tipo || "Video"}</h3></div>
+    <div class="video-card" onclick="tocarVideo('${F.idTopico(v)}','videos')">
+      <div class="video-thumb"><img ${imgWithFallback(F.capa(v), F.idTopico(v))} alt=""/><div class="play-overlay"><i class="fa fa-play"></i></div></div>
+      <div class="video-info"><h3>${F.tipo(v) || "Video"}</h3></div>
     </div>`).join("");
 }
 
 function renderTopVideosFromWeeks() {
-  const ordenadas = [...musicVideosDB].sort((a,b) => (parseInt(b.weeks_video)||0) - (parseInt(a.weeks_video)||0)).slice(0, 12);
+  const ordenadas = [...musicVideosDB].sort((a,b) => (parseInt(F.weeksVideo(b))||0) - (parseInt(F.weeksVideo(a))||0)).slice(0, 12);
   document.getElementById("top-videos-grid").innerHTML = ordenadas.map(v => `
-    <div class="video-card" onclick="tocarVideo('${v.id_do_topico}','musicvideos')">
-      <div class="video-thumb"><img ${coverAttr(v)} alt=""/><div class="play-overlay"><i class="fa fa-play"></i></div></div>
-      <div class="video-info"><h3>${v.tipo_de_clipe || "Music Video"}</h3><p>${v.weeks_video || 0} semanas video</p></div>
+    <div class="video-card" onclick="tocarVideo('${F.idTopico(v)}','musicvideos')">
+      <div class="video-thumb"><img ${imgWithFallback(F.capa(v), F.idTopico(v))} alt=""/><div class="play-overlay"><i class="fa fa-play"></i></div></div>
+      <div class="video-info"><h3>${F.tipoClipe(v) || "Music Video"}</h3><p>${F.weeksVideo(v) || 0} semanas video</p></div>
     </div>`).join("");
 }
 
-// ---------- ULTIMOS LANCAMENTOS (Home) ----------
 function mudarAbaReleases(categoria) {
   releasesAbaAtiva = categoria;
   document.querySelectorAll(".releases-tab").forEach(t => t.classList.remove("active"));
@@ -333,38 +365,44 @@ function mudarAbaReleases(categoria) {
 function renderReleases() {
   const el = document.getElementById("releases-grid");
   if (!el) return;
-  let db, nomeCampo, clickFn;
-  if (releasesAbaAtiva === "musicas") { db = musicasDB; nomeCampo = "nome_da_musica"; clickFn = (id) => `tocarMusica('${id}')`; }
-  else if (releasesAbaAtiva === "musicvideos") { db = musicVideosDB; nomeCampo = "tipo_de_clipe"; clickFn = (id) => `tocarVideo('${id}','musicvideos')`; }
-  else { db = videosDB; nomeCampo = "tipo"; clickFn = (id) => `tocarVideo('${id}','videos')`; }
+  let db, nomeFn, subFn, clickFn;
+  if (releasesAbaAtiva === "musicas") {
+    db = musicasDB; nomeFn = F.nomeMusica; subFn = F.actPrincipal;
+    clickFn = (id) => `tocarMusica('${id}')`;
+  } else if (releasesAbaAtiva === "musicvideos") {
+    db = musicVideosDB; nomeFn = F.tipoClipe; subFn = F.generoVideo;
+    clickFn = (id) => `tocarVideo('${id}','musicvideos')`;
+  } else {
+    db = videosDB; nomeFn = F.tipo; subFn = () => "";
+    clickFn = (id) => `tocarVideo('${id}','videos')`;
+  }
 
   const ordenados = [...db].sort((a,b) => parseDataLancamento(b) - parseDataLancamento(a)).slice(0, 10);
   el.innerHTML = ordenados.map(item => `
-    <div class="release-card" onclick="${clickFn(item.id_do_topico)}">
-      <img ${coverAttr(item)} alt=""/>
-      <h3>${item[nomeCampo] || "Sem titulo"}</h3>
-      <p>${item.act_principal || item.genero || ""}</p>
-      <div class="release-date">${item.data_de_lancamento ? new Date(item.data_de_lancamento).toLocaleDateString('pt-BR') : ""}</div>
+    <div class="release-card" onclick="${clickFn(F.idTopico(item))}">
+      <img ${imgWithFallback(F.capa(item), F.idTopico(item))} alt=""/>
+      <h3>${nomeFn(item) || "Sem titulo"}</h3>
+      <p>${subFn(item) || ""}</p>
+      <div class="release-date">${F.data(item) ? new Date(F.data(item)).toLocaleDateString('pt-BR') : ""}</div>
     </div>`).join("") || "<p class='forum-empty'>Nenhum lancamento ainda.</p>";
 }
 
-// ---------- TOCAR MUSICA / VIDEO ----------
 function tocarMusica(idTopico) {
   currentTopicoId = idTopico; currentCategoria = "musicas";
-  const musica = musicasDB.find(m => String(m.id_do_topico) === String(idTopico));
+  const musica = musicasDB.find(m => String(F.idTopico(m)) === String(idTopico));
   if (!musica) return;
-  playSong(musica.id_do_arquivo, musica.nome_da_musica, musica.act_principal, musica.capa_da_musica, musica.letra);
-  configurarBotaoForum(musica.id_do_topico, "musicas");
+  playSong(F.idArquivo(musica), F.nomeMusica(musica), F.actPrincipal(musica), F.capa(musica), F.letra(musica));
+  configurarBotaoForum(F.idTopico(musica), "musicas");
 }
 
 function tocarVideo(idTopico, categoria) {
   currentTopicoId = idTopico; currentCategoria = categoria;
   const db = categoria === "musicvideos" ? musicVideosDB : videosDB;
-  const item = db.find(v => String(v.id_do_topico) === String(idTopico));
+  const item = db.find(v => String(F.idTopico(v)) === String(idTopico));
   if (!item) return;
-  const titulo = item.tipo_de_clipe || item.tipo || "Video";
-  playSong(item.id_do_arquivo, titulo, "", item.capa, null);
-  configurarBotaoForum(item.id_do_topico, categoria);
+  const titulo = F.tipoClipe(item) || F.tipo(item) || "Video";
+  playSong(F.idArquivo(item), titulo, "", F.capa(item), null);
+  configurarBotaoForum(F.idTopico(item), categoria);
 }
 
 function configurarBotaoForum(idTopico, categoria) {
@@ -372,7 +410,6 @@ function configurarBotaoForum(idTopico, categoria) {
   btn.onclick = () => irParaForum(idTopico, categoria);
 }
 
-// ---------- FORUM ----------
 function mudarAbaForum(categoria) {
   forumAbaAtiva = categoria;
   document.querySelectorAll(".forum-tab").forEach(t => t.classList.remove("active"));
@@ -383,36 +420,51 @@ function mudarAbaForum(categoria) {
 function renderForumTopicos() {
   const el = document.getElementById("forum-topicos");
   if (!el) return;
-  let db, nomeCampo, subCampo;
-  if (forumAbaAtiva === "musicas") { db = musicasDB; nomeCampo = "nome_da_musica"; subCampo = "act_principal"; }
-  else if (forumAbaAtiva === "musicvideos") { db = musicVideosDB; nomeCampo = "tipo_de_clipe"; subCampo = "genero"; }
-  else { db = videosDB; nomeCampo = "tipo"; subCampo = ""; }
+  let db, nomeFn, subFn;
+  if (forumAbaAtiva === "musicas") { db = musicasDB; nomeFn = F.nomeMusica; subFn = F.actPrincipal; }
+  else if (forumAbaAtiva === "musicvideos") { db = musicVideosDB; nomeFn = F.tipoClipe; subFn = F.generoVideo; }
+  else { db = videosDB; nomeFn = F.tipo; subFn = () => ""; }
 
   el.innerHTML = db.map(item => `
-    <div class="forum-topico-card" onclick="abrirTopicoForum('${item.id_do_topico}','${forumAbaAtiva}')">
-      <img ${coverAttr(item)} alt=""/>
-      <div><h3>${item[nomeCampo] || "Sem titulo"}</h3><p>${subCampo ? (item[subCampo] || "") : ""}</p></div>
+    <div class="forum-topico-card" onclick="abrirTopicoForum('${F.idTopico(item)}','${forumAbaAtiva}')">
+      <img ${imgWithFallback(F.capa(item), F.idTopico(item))} alt=""/>
+      <div><h3>${nomeFn(item) || "Sem titulo"}</h3><p>${subFn(item) || ""}</p></div>
       <i class="fa fa-chevron-right"></i>
     </div>`).join("") || "<p class='forum-empty'>Nenhum topico ainda.</p>";
 }
 
 async function abrirTopicoForum(idTopico, categoria) {
   currentTopicoId = idTopico; currentCategoria = categoria;
-  let db, nomeCampo, subCampo, playFn;
-  if (categoria === "musicas") { db = musicasDB; nomeCampo = "nome_da_musica"; subCampo = "act_principal"; playFn = `tocarMusica('${idTopico}')`; }
-  else if (categoria === "musicvideos") { db = musicVideosDB; nomeCampo = "tipo_de_clipe"; subCampo = "genero"; playFn = `tocarVideo('${idTopico}','musicvideos')`; }
-  else { db = videosDB; nomeCampo = "tipo"; subCampo = ""; playFn = `tocarVideo('${idTopico}','videos')`; }
+  let db, nomeFn, subFn, playFn, letraTxt;
+  if (categoria === "musicas") {
+    db = musicasDB; nomeFn = F.nomeMusica; subFn = F.actPrincipal;
+    playFn = `tocarMusica('${idTopico}')`;
+  } else if (categoria === "musicvideos") {
+    db = musicVideosDB; nomeFn = F.tipoClipe; subFn = F.generoVideo;
+    playFn = `tocarVideo('${idTopico}','musicvideos')`;
+  } else {
+    db = videosDB; nomeFn = F.tipo; subFn = () => "";
+    playFn = `tocarVideo('${idTopico}','videos')`;
+  }
 
-  const item = db.find(m => String(m.id_do_topico) === String(idTopico));
+  const item = db.find(m => String(F.idTopico(m)) === String(idTopico));
   if (!item) return;
+  letraTxt = categoria === "musicas" ? F.letra(item) : "";
 
   document.getElementById("forum-topicos-view").classList.add("hidden");
   document.getElementById("forum-thread-view").classList.remove("hidden");
+
   document.getElementById("forum-thread-header").innerHTML = `
     <button class="forum-back" onclick="voltarListaForum()"><i class="fa fa-arrow-left"></i> Topicos</button>
-    <img ${coverAttr(item)} alt=""/>
-    <div><h2>${item[nomeCampo] || "Sem titulo"}</h2><p>${subCampo ? (item[subCampo] || "") : ""}</p></div>
-    <button class="forum-play-btn" onclick="${playFn}"><i class="fa fa-play"></i> Tocar</button>
+    <div class="forum-topico-principal">
+      <img class="forum-topico-capa" ${imgWithFallback(F.capa(item), F.idTopico(item))} alt=""/>
+      <div class="forum-topico-info">
+        <h2>${nomeFn(item) || "Sem titulo"}</h2>
+        <p>${subFn(item) || ""}</p>
+        <button class="forum-play-btn" onclick="${playFn}"><i class="fa fa-play"></i> Tocar</button>
+      </div>
+    </div>
+    ${letraTxt ? `<div class="forum-letra-box"><h3><i class="fa fa-align-left"></i> Letra</h3><pre>${letraTxt}</pre></div>` : ""}
   `;
 
   const listEl = document.getElementById("forum-comment-list");
@@ -422,7 +474,11 @@ async function abrirTopicoForum(idTopico, categoria) {
     const json = await res.json();
     const comentarios = json.data || [];
     listEl.innerHTML = comentarios.length
-      ? comentarios.map(c => `<div class="forum-comment"><strong>${c.nome_do_jogador}</strong><p>${c.comentario}</p></div>`).join("")
+      ? comentarios.map(c => {
+          const nome = getField(c, "nome_do_jogador", "nome") || "Anonimo";
+          const texto = getField(c, "comentario", "texto");
+          return `<div class="forum-comment"><strong>${nome}</strong><p>${texto}</p></div>`;
+        }).join("")
       : "<p class='forum-empty'>Nenhum comentario ainda. Seja o primeiro!</p>";
   } catch (err) {
     listEl.innerHTML = "<p class='forum-empty'>Erro ao carregar comentarios.</p>";
@@ -447,7 +503,6 @@ async function enviarComentario() {
   abrirTopicoForum(currentTopicoId, currentCategoria);
 }
 
-// ---------- SWIPER ----------
 window.swiperInstance = new Swiper(".swiper", {
   effect: "coverflow", grabCursor: true, centeredSlides: true, loop: true, speed: 600, slidesPerView: "auto",
   coverflowEffect: { rotate: 10, stretch: 120, depth: 200, modifier: 1, slideShadows: false },
@@ -455,7 +510,6 @@ window.swiperInstance = new Swiper(".swiper", {
   pagination: { el: ".swiper-pagination" },
 });
 
-// ---------- MINHAS MUSICAS ----------
 let mySongs = [];
 function renderMySongs() {
   const el = document.getElementById("my-song-list");
@@ -479,6 +533,5 @@ function addSong() {
   document.getElementById("song-url-input").value = "";
 }
 
-// ---------- INIT ----------
 carregarTudo();
 renderMySongs();
