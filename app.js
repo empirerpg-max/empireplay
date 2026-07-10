@@ -211,9 +211,12 @@ function playSong(rawSource, title, artist, cover, lyrics) {
   else if (src.type === "drive" && src.id) {
     currentPlayerType = "drive"; stopAllPlayers();
     const audioEl = document.getElementById("direct-audio");
-    audioEl.src = `https://drive.google.com/uc?export=download&id=${src.id}`;
+    audioEl.src = `https://drive.google.com/uc?export=download&confirm=t&id=${src.id}`;
     audioEl.play().catch(() => {
-      alert("Este arquivo do Google Drive nao pode ser reproduzido.\n\nProvavel causa: o arquivo nao esta compartilhado como \"Qualquer pessoa com o link\".\n\nPeca para o dono do arquivo mudar a permissao de compartilhamento no Google Drive (clique direito no arquivo > Compartilhar > Qualquer pessoa com o link).");
+      audioEl.src = `https://drive.google.com/uc?export=download&id=${src.id}`;
+      audioEl.play().catch(() => {
+        alert("Este arquivo do Google Drive nao pode ser reproduzido.\n\nProvavel causa: o arquivo nao esta compartilhado como \"Qualquer pessoa com o link\", ou o formato do arquivo nao e suportado pelo navegador.\n\nVerifique a permissao no Google Drive (clique direito no arquivo > Compartilhar > Qualquer pessoa com o link).");
+      });
     });
   } else if (src.type === "direct") {
     currentPlayerType = "direct"; stopAllPlayers();
