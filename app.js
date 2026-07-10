@@ -183,10 +183,8 @@ function startProgressLoop() {
 function stopAllPlayers() {
   clearInterval(progressInterval);
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
-  const driveIframe = document.getElementById("drive-audio-iframe");
-  if (driveIframe) driveIframe.src = "";
   const directAudio = document.getElementById("direct-audio");
-  if (directAudio) directAudio.pause();
+  if (directAudio) { directAudio.pause(); directAudio.src = ""; }
 }
 
 let currentPlayerType = null;
@@ -212,12 +210,11 @@ function playSong(rawSource, title, artist, cover, lyrics) {
   if (src.type === "youtube" && src.id) { currentPlayerType = "youtube"; playYoutubeId(src.id); }
   else if (src.type === "drive" && src.id) {
     currentPlayerType = "drive"; stopAllPlayers();
-    const iframe = document.getElementById("drive-audio-iframe");
-    iframe.src = `https://drive.google.com/file/d/${src.id}/preview`;
-    clearTimeout(window._driveCheckTimeout);
-    window._driveCheckTimeout = setTimeout(() => {
-      alert("Este arquivo do Google Drive nao pode ser reproduzido.\n\nProvavel causa: o arquivo nao esta compartilhado como \"Qualquer pessoa com o link\".\n\nPeca para o dono do arquivo mudar a permissao de compartilhamento no Google Drive.");
-    }, 4000);
+    const audioEl = document.getElementById("direct-audio");
+    audioEl.src = `https://drive.google.com/uc?export=download&id=${src.id}`;
+    audioEl.play().catch(() => {
+      alert("Este arquivo do Google Drive nao pode ser reproduzido.\n\nProvavel causa: o arquivo nao esta compartilhado como \"Qualquer pessoa com o link\".\n\nPeca para o dono do arquivo mudar a permissao de compartilhamento no Google Drive (clique direito no arquivo > Compartilhar > Qualquer pessoa com o link).");
+    });
   } else if (src.type === "direct") {
     currentPlayerType = "direct"; stopAllPlayers();
     const audioEl = document.getElementById("direct-audio");
@@ -233,30 +230,34 @@ function toggleLyrics() {
   panel.classList.toggle("hidden");
 }
 
-document.getElementById("drive-audio-iframe").addEventListener("load", () => {
-  clearTimeout(window._driveCheckTimeout);
-});
-
 document.getElementById("play-pause-btn").addEventListener("click", () => {
   const icon = document.getElementById("controlIcon");
   if (currentPlayerType === "youtube" && ytPlayer) {
     const state = ytPlayer.getPlayerState();
     if (state === YT.PlayerState.PLAYING) { ytPlayer.pauseVideo(); icon.className = "fa-solid fa-play"; }
     else { ytPlayer.playVideo(); icon.className = "fa-solid fa-pause"; }
-  } else if (currentPlayerType === "direct") {
+  } else if (currentPlayerType === "direct" || currentPlayerType === "drive") {
     const audioEl = document.getElementById("direct-audio");
     if (audioEl.paused) { audioEl.play(); icon.className = "fa-solid fa-pause"; }
     else { audioEl.pause(); icon.className = "fa-solid fa-play"; }
-  } else if (currentPlayerType === "drive") {
-    const iframe = document.getElementById("drive-audio-iframe");
-    if (iframe.src) { iframe.src = ""; icon.className = "fa-solid fa-play"; }
-    else { icon.className = "fa-solid fa-pause"; }
   }
 });
 
 document.getElementById("progress").addEventListener("input", function () {
   if (currentPlayerType === "youtube" && ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(this.value, true);
-  else if (currentPlayerType === "direct") document.getElementById("direct-audio").currentTime = this.value;
+  else if (currentPlayerType === "direct" || currentPlayerType === "drive") document.getElementById("direct-audio").currentTime = this.value;
+});
+
+document.getElementById("direct-audio").addEventListener("timeupdate", function () {
+  if (currentPlayerType === "direct" || currentPlayerType === "drive") {
+    const progress = document.getElementById("progress");
+    if (this.duration) { progress.max = this.duration; progress.value = this.currentTime; }
+    document.getElementById("time-current").textContent = formatTime(this.currentTime);
+    document.getElementById("time-total").textContent = formatTime(this.duration);
+  }
+});
+document.getElementById("direct-audio").addEventListener("ended", function () {
+  document.getElementById("controlIcon").className = "fa-solid fa-play";
 });
 
 async function carregarTudo() {
@@ -465,15 +466,17 @@ async function abrirTopicoForum(idTopico, categoria) {
 
   document.getElementById("forum-thread-header").innerHTML = `
     <button class="forum-back" onclick="voltarListaForum()"><i class="fa fa-arrow-left"></i> Topicos</button>
-    <div class="forum-topico-principal">
-      <img class="forum-topico-capa" ${imgWithFallback(F.capa(item), F.idTopico(item))} alt=""/>
-      <div class="forum-topico-info">
-        <h2>${nomeFn(item) || "Sem titulo"}</h2>
-        <p>${subFn(item) || ""}</p>
-        <button class="forum-play-btn" onclick="${playFn}"><i class="fa fa-play"></i> Tocar</button>
+    <div class="forum-thread-body">
+      <div class="forum-topico-principal">
+        <img class="forum-topico-capa" ${imgWithFallback(F.capa(item), F.idTopico(item))} alt=""/>
+        <div class="forum-topico-info">
+          <h2>${nomeFn(item) || "Sem titulo"}</h2>
+          <p>${subFn(item) || ""}</p>
+          <button class="forum-play-btn" onclick="${playFn}"><i class="fa fa-play"></i> Tocar</button>
+        </div>
       </div>
+      ${letraTxt ? `<div class="forum-letra-box"><h3><i class="fa fa-align-left"></i> Letra</h3><pre>${letraTxt}</pre></div>` : ""}
     </div>
-    ${letraTxt ? `<div class="forum-letra-box"><h3><i class="fa fa-align-left"></i> Letra</h3><pre>${letraTxt}</pre></div>` : ""}
   `;
 
   const listEl = document.getElementById("forum-comment-list");
