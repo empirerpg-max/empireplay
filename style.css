@@ -289,10 +289,10 @@ h1.small { font-size: 1.05rem; margin-bottom: 12px; }
 .forum-play-btn { background: var(--spotify-green); border: none; color: #063; padding: 10px 26px; border-radius: 24px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.95rem; }
 
 .forum-thread-body {
-  display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;
+  display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 24px;
 }
 .forum-thread-body .forum-topico-principal { margin-bottom: 0; }
-.forum-thread-body .forum-letra-box { flex: 1; min-width: 280px; margin-bottom: 0; max-height: 460px; }
+.forum-thread-body .forum-letra-box { flex: 1; min-width: 280px; margin-bottom: 0; max-height: 460px; overflow-y: auto; }
 
 @media (max-width: 800px) {
   .forum-thread-body { flex-direction: column; }
