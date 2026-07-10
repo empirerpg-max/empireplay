@@ -64,33 +64,22 @@
             <div class="song-container" id="recent-songs"></div>
           </div>
 
-          <div class="music-player hidden" id="audio-player">
+          <div class="music-player hidden" id="music-player">
             <div class="album-cover">
-              <img src="https://via.placeholder.com/120x120?text=%E2%99%AB" id="rotatingImage" alt="cover"/>
+              <img src="https://via.placeholder.com/120x120?text=%E2%99%AB" id="player-cover" alt="cover"/>
               <span class="point"></span>
             </div>
             <h2 id="player-title">Selecione uma musica</h2>
             <p id="player-artist">-</p>
-            <audio id="song"></audio>
             <input type="range" value="0" id="progress"/>
             <div class="controls">
-              <button class="play-pause-btn"><i class="fa-solid fa-play" id="controlIcon"></i></button>
+              <button class="play-pause-btn" id="play-pause-btn"><i class="fa-solid fa-play" id="controlIcon"></i></button>
             </div>
           </div>
 
-          <div class="video-player hidden" id="video-player">
-            <div class="video-header">
-              <img id="video-cover" src="https://via.placeholder.com/40x40?text=%E2%99%AB" alt=""/>
-              <div class="video-header-info">
-                <h2 id="video-title">Reproduzindo</h2>
-                <p id="video-artist"></p>
-              </div>
-              <button onclick="closeVideoPlayer()"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="video-frame">
-              <iframe id="video-iframe" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe>
-            </div>
-          </div>
+          <div id="yt-player-container" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;"></div>
+          <iframe id="drive-audio-iframe" src="" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;" allow="autoplay"></iframe>
+          <audio id="direct-audio"></audio>
         </div>
       </div>
 
@@ -122,11 +111,6 @@
 
       <div id="videos" class="section">
         <h1>Videos</h1>
-        <div class="add-item-bar">
-          <input type="text" id="video-title-input" placeholder="Titulo do video"/>
-          <input type="text" id="video-url-input" placeholder="Link (YouTube ou Google Drive)"/>
-          <button onclick="addVideo()"><i class="fa fa-plus"></i> Adicionar</button>
-        </div>
         <div class="video-grid" id="my-video-list"></div>
       </div>
 
@@ -137,7 +121,18 @@
 
       <div id="forum" class="section">
         <div id="forum-topicos-view">
-          <h1>Forum - Topicos por Musica</h1>
+          <h1>Forum</h1>
+          <div class="forum-tabs">
+            <button class="forum-tab active" data-cat="musicas" onclick="mudarAbaForum('musicas')">
+              <i class="fa fa-music"></i> Musicas
+            </button>
+            <button class="forum-tab" data-cat="musicvideos" onclick="mudarAbaForum('musicvideos')">
+              <i class="fa fa-film"></i> Music Videos
+            </button>
+            <button class="forum-tab" data-cat="videos" onclick="mudarAbaForum('videos')">
+              <i class="fa fa-video"></i> Videos
+            </button>
+          </div>
           <div class="forum-topico-list" id="forum-topicos"></div>
         </div>
 
@@ -155,6 +150,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script src="app.js"></script>
 </body>
 </html>
