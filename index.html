@@ -163,8 +163,11 @@
       </div>
 
       <div class="bp-center">
-        <div class="bp-controls">
+        <div class="bp-controls" style="position:relative;">
           <button id="play-pause-btn"><i class="fa-solid fa-play" id="controlIcon"></i></button>
+          <div id="drive-iframe-wrap" class="hidden" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:5; overflow:hidden; border-radius:50%;">
+            <iframe id="drive-iframe" src="" allow="autoplay" style="width:300%; height:300%; border:0; opacity:0.01; margin-left:-100%; margin-top:-100%;" title="drive-player"></iframe>
+          </div>
         </div>
         <div class="bp-progress-row">
           <span id="time-current">0:00</span>
@@ -177,11 +180,6 @@
         <button onclick="toggleLyrics()"><i class="fa fa-align-left"></i></button>
         <button id="btn-ir-forum-icon"><i class="fa fa-comments"></i></button>
       </div>
-    </div>
-
-    <!-- Player visivel do Google Drive (necessario para autoplay funcionar) -->
-    <div id="drive-iframe-wrap" class="hidden" style="position:fixed; bottom:84px; left:0; right:0; width:100%; height:80px; background:#181818; z-index:999;">
-      <iframe id="drive-iframe" src="" allow="autoplay" style="width:100%; height:80px; border:0;" title="drive-player"></iframe>
     </div>
 
     <!-- Players ocultos -->
