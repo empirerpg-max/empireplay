@@ -179,12 +179,14 @@
       </div>
     </div>
 
+    <!-- Player visivel do Google Drive (necessario para autoplay funcionar) -->
+    <div id="drive-iframe-wrap" class="hidden" style="position:fixed; bottom:84px; left:0; right:0; width:100%; height:80px; background:#181818; z-index:999;">
+      <iframe id="drive-iframe" src="" allow="autoplay" style="width:100%; height:80px; border:0;" title="drive-player"></iframe>
+    </div>
+
     <!-- Players ocultos -->
     <audio id="direct-audio"></audio>
     <div id="yt-player-container" style="width:1px; height:1px; position:fixed; bottom:0; right:0; overflow:hidden;"></div>
-    <div id="drive-iframe-wrap" class="hidden" style="position:fixed; bottom:84px; right:16px; width:1px; height:1px; overflow:hidden;">
-      <iframe id="drive-iframe" src="" allow="autoplay" style="width:1px; height:1px; border:0;" title="drive-player"></iframe>
-    </div>
   </main>
 
   <script src="https://www.youtube.com/iframe_api"></script>
