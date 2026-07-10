@@ -39,6 +39,9 @@
           <li class="nav-item" data-section="top-videos">
             <a href="#"><i class="fa fa-arrow-trend-up nav-icon"></i><span class="nav-text">Top Videos</span></a>
           </li>
+          <li class="nav-item" data-section="forum">
+            <a href="#"><i class="fa fa-comments nav-icon"></i><span class="nav-text">Forum</span></a>
+          </li>
         </ul>
       </div>
     </nav>
@@ -61,9 +64,9 @@
             <div class="song-container" id="recent-songs"></div>
           </div>
 
-          <div class="music-player" id="audio-player">
+          <div class="music-player hidden" id="audio-player">
             <div class="album-cover">
-              <img src="https://picsum.photos/seed/cover/120/120" id="rotatingImage" alt="cover"/>
+              <img src="https://via.placeholder.com/120x120?text=%E2%99%AB" id="rotatingImage" alt="cover"/>
               <span class="point"></span>
             </div>
             <h2 id="player-title">Selecione uma musica</h2>
@@ -71,15 +74,17 @@
             <audio id="song"></audio>
             <input type="range" value="0" id="progress"/>
             <div class="controls">
-              <button class="backward"><i class="fa-solid fa-backward"></i></button>
               <button class="play-pause-btn"><i class="fa-solid fa-play" id="controlIcon"></i></button>
-              <button class="forward"><i class="fa-solid fa-forward"></i></button>
             </div>
           </div>
 
           <div class="video-player hidden" id="video-player">
             <div class="video-header">
-              <h2 id="video-title">Reproduzindo</h2>
+              <img id="video-cover" src="https://via.placeholder.com/40x40?text=%E2%99%AB" alt=""/>
+              <div class="video-header-info">
+                <h2 id="video-title">Reproduzindo</h2>
+                <p id="video-artist"></p>
+              </div>
               <button onclick="closeVideoPlayer()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="video-frame">
@@ -129,15 +134,25 @@
         <h1>Top Videos</h1>
         <div class="video-grid" id="top-videos-grid"></div>
       </div>
+
+      <div id="forum" class="section">
+        <div id="forum-topicos-view">
+          <h1>Forum - Topicos por Musica</h1>
+          <div class="forum-topico-list" id="forum-topicos"></div>
+        </div>
+
+        <div id="forum-thread-view" class="hidden">
+          <div class="forum-thread-header" id="forum-thread-header"></div>
+          <div class="forum-comment-list" id="forum-comment-list"></div>
+          <div class="forum-add-inline">
+            <input type="text" id="forum-nome" placeholder="Seu nome"/>
+            <textarea id="forum-texto" placeholder="Escreva um comentario..."></textarea>
+            <button onclick="enviarComentario()">Comentar</button>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
-
-  <div id="forum-panel" class="forum-panel hidden">
-    <button class="forum-close" onclick="document.getElementById('forum-panel').classList.add('hidden')">
-      <i class="fa fa-xmark"></i>
-    </button>
-    <div id="forum-container"></div>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
   <script src="app.js"></script>
