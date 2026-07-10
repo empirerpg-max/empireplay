@@ -1,5 +1,5 @@
 // ============================================================
-//  EmpirePlay - app.js (v7 - Drive via iframe /preview)
+//  EmpirePlay - app.js (v7 - Drive via iframe /preview visivel)
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
