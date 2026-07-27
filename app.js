@@ -1,40 +1,29 @@
 // ============================================================
-//  EmpirePlay - app.js (v9 - Mapeamento definitivo por aba)
+//  EmpirePlay - app.js (v10 - Leve, lazy load, suporte Telegram)
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
 
 // ============================================================
-//  MAPEAMENTO DEFINITIVO DE CAMPOS POR ABA
-//  Baseado na estrutura real da planilha Empire Hub
+//  NORMALIZAÇÃO E MAPEAMENTO
 // ============================================================
-
-// Normaliza string para comparação sem acento/espaço/maiúsculas
 function norm(s) {
   return String(s).toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
 }
-
-// Busca campo em objeto pelo nome normalizado (suporta múltiplos aliases)
 function gf(item, ...aliases) {
   if (!item) return "";
   const normKeys = Object.keys(item).map(k => ({ orig: k, n: norm(k) }));
   for (const alias of aliases) {
     const target = norm(alias);
     const found = normKeys.find(k => k.n === target);
-    if (found && item[found.orig] !== undefined && item[found.orig] !== "" && item[found.orig] !== null) {
+    if (found && item[found.orig] !== undefined && item[found.orig] !== "" && item[found.orig] !== null)
       return item[found.orig];
-    }
   }
   return "";
 }
 
-// ── ABA MUSICAS ──────────────────────────────────────────────
-// Colunas: Data de lançamento, ID do tópico, ID do arquivo,
-//          Capa da música, Letra, Comentários para, ID do Criador,
-//          Nome da música, TIPO DE SINGLE, TIPO DE MÚSICA, ALBUM,
-//          WEEKS, WEEKS VIDEO, ACT PRINCIPAL, ARTISTA 2..6, GÊNERO, Ordem
 const FM = {
   data:         (i) => gf(i, "Data de lançamento", "datadelancamento", "data"),
   idTopico:     (i) => gf(i, "ID do tópico", "idtopico", "id_topico"),
@@ -57,16 +46,12 @@ const FM = {
   artista6:     (i) => gf(i, "ARTISTA 6", "artista6"),
   genero:       (i) => gf(i, "GÊNERO", "genero", "generodamusica"),
   ordem:        (i) => gf(i, "Ordem", "ordem"),
-  // Artistas combinados (act principal + feat)
   artistas:     (i) => {
     const arr = [FM.actPrincipal(i), FM.artista2(i), FM.artista3(i), FM.artista4(i), FM.artista5(i), FM.artista6(i)].filter(Boolean);
     return arr.join(", ");
   }
 };
 
-// ── ABA ALBUNS ───────────────────────────────────────────────
-// Colunas: Data de lançamento, ID do tópico, Capa,
-//          Comentários para, ID do Criador, Nome do criador, Nome
 const FA = {
   data:           (i) => gf(i, "Data de lançamento", "datadelancamento", "data"),
   idTopico:       (i) => gf(i, "ID do tópico", "idtopico", "id_topico"),
@@ -77,9 +62,6 @@ const FA = {
   nome:           (i) => gf(i, "Nome", "nome"),
 };
 
-// ── ABA MUSIC VIDEOS ─────────────────────────────────────────
-// Colunas: Data de lançamento, ID do tópico, ID do arquivo,
-//          Thumb, Comentários para, ID do Criador, Nome, Nome do criador, Tipo
 const FV = {
   data:           (i) => gf(i, "Data de lançamento", "datadelancamento", "data"),
   idTopico:       (i) => gf(i, "ID do tópico", "idtopico", "id_topico"),
@@ -92,8 +74,6 @@ const FV = {
   tipo:           (i) => gf(i, "Tipo", "tipo"),
 };
 
-// ── COMENTARIOS_ALBUNS (padrão músicas/álbuns) ───────────────
-// Colunas: ID do tópico, ID do jogador, Nome do jogador, Comentário, Data
 const FC_A = {
   idTopico:    (i) => gf(i, "ID do tópico", "idtopico"),
   idJogador:   (i) => gf(i, "ID do jogador", "idjogador"),
@@ -102,9 +82,6 @@ const FC_A = {
   data:        (i) => gf(i, "Data", "data"),
 };
 
-// ── COMENTARIOS_VIDEOS (nomenclatura Telegram) ───────────────
-// Colunas: telegram_topic_id, telegram_message_id, texto, autor,
-//          id_usuario, data, reacoes
 const FC_V = {
   idTopico:   (i) => gf(i, "telegram_topic_id", "idtopico", "id_topico"),
   msgId:      (i) => gf(i, "telegram_message_id"),
@@ -113,20 +90,6 @@ const FC_V = {
   idUsuario:  (i) => gf(i, "id_usuario"),
   data:       (i) => gf(i, "data"),
   reacoes:    (i) => gf(i, "reacoes"),
-};
-
-// ── CHARTS ───────────────────────────────────────────────────
-// Top_50_Spotify / Top_Songs_Apple_Music:
-//   Capa da música, ID do tópico, Link do áudio, ID do criador, Nome da música, Posição
-// Top_Videos_YT:
-//   Thumb, ID do tópico, Link do áudio, ID do criador, Nome do vídeo, Posição
-const FC_CHART = {
-  capa:      (i) => gf(i, "Capa da música", "capadamusica", "Thumb", "thumb"),
-  idTopico:  (i) => gf(i, "ID do tópico", "idtopico"),
-  linkAudio: (i) => gf(i, "Link do áudio", "linkdoaudio", "link_do_audio", "idarquivo", "id_arquivo"),
-  idCriador: (i) => gf(i, "ID do criador", "idcriador"),
-  nome:      (i) => gf(i, "Nome da música", "nomedamusica", "Nome do vídeo", "nomedomusica", "nome"),
-  posicao:   (i) => gf(i, "Posição", "posicao"),
 };
 
 // ============================================================
@@ -158,7 +121,6 @@ function buildImageCandidates(capa) {
   if (!capa) return [];
   const s = String(capa).trim();
   if (!s) return [];
-  // URL direta não-Drive → usa direto
   if (s.startsWith("http") && !s.includes("drive.google.com")) return [s];
   const id = extractDriveId(s) || (s.match(/^[a-zA-Z0-9_-]{20,}$/) ? s : null);
   if (!id) return s.startsWith("http") ? [s] : [];
@@ -175,7 +137,7 @@ function imgWithFallback(capa, seed) {
   const chain = [...candidates, fallback];
   const first = chain.shift();
   const errorChain = chain.map(u => String(u).replace(/'/g, "\\'")).join("|||");
-  return `data-chain="${errorChain}" src="${first}" onerror="tryNextImg(this)"`;
+  return `loading="lazy" data-chain="${errorChain}" src="${first}" onerror="tryNextImg(this)"`;
 }
 
 function tryNextImg(imgEl) {
@@ -188,7 +150,7 @@ function tryNextImg(imgEl) {
 window.tryNextImg = tryNextImg;
 
 // ============================================================
-//  UTILITÁRIOS DE ÁUDIO/VÍDEO
+//  DETECÇÃO DE FONTE — inclui Telegram
 // ============================================================
 function extractYoutubeId(str) {
   if (!str) return null;
@@ -196,18 +158,98 @@ function extractYoutubeId(str) {
   return m ? m[1] : null;
 }
 
+// Detecta links Telegram: t.me, telegram.me ou IDs numéricos de arquivo
+function extractTelegramInfo(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  // Link direto de arquivo do Telegram: https://t.me/c/CHATID/MSGID ou https://t.me/CHANNEL/MSGID
+  const m1 = s.match(/t\.me\/(?:c\/)?([^/]+)\/([\d]+)/);
+  if (m1) return { channel: m1[1], msgId: m1[2] };
+  return null;
+}
+
 function detectSource(str) {
   if (!str || String(str).trim() === "") return { type: "none" };
   const s = String(str).trim();
   if (s.includes("youtube.com") || s.includes("youtu.be")) return { type: "youtube", id: extractYoutubeId(s) };
   if (s.includes("drive.google.com")) return { type: "drive", id: extractDriveId(s) };
+  // Telegram
+  if (s.includes("t.me") || s.includes("telegram.me")) return { type: "telegram", url: s };
+  // Vídeo direto (mp4, webm, etc.)
+  if (s.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) return { type: "video_direct", url: s };
+  // Áudio direto
   if (s.match(/\.(mp3|wav|ogg|aac)(\?|$)/i)) return { type: "direct", url: s };
+  // ID do Drive puro
   if (s.match(/^[a-zA-Z0-9_-]{25,}$/)) return { type: "drive", id: s };
   return { type: "none" };
 }
 
 // ============================================================
-//  PLAYER YOUTUBE
+//  PLAYER DE VÍDEO DEDICADO (modal)
+// ============================================================
+function abrirPlayerVideo(src, titulo) {
+  let modal = document.getElementById("video-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "video-modal";
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9990;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;";
+    modal.innerHTML = `
+      <div style="width:100%;max-width:860px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span id="video-modal-title" style="color:#fff;font-weight:700;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%;"></span>
+          <button onclick="fecharPlayerVideo()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:4px 10px;">&times;</button>
+        </div>
+        <div id="video-modal-body" style="width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;"></div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = "flex";
+  document.getElementById("video-modal-title").textContent = titulo || "";
+  const body = document.getElementById("video-modal-body");
+  body.innerHTML = "";
+
+  const source = detectSource(src);
+
+  if (source.type === "youtube") {
+    body.innerHTML = `<iframe src="https://www.youtube.com/embed/${source.id}?autoplay=1" style="width:100%;height:100%;border:0;" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+  } else if (source.type === "drive") {
+    body.innerHTML = `<iframe src="https://drive.google.com/file/d/${source.id}/preview" style="width:100%;height:100%;border:0;" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+  } else if (source.type === "telegram") {
+    // Telegram: embed via iframe do viewer público
+    body.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:#fff;padding:20px;text-align:center;">
+        <i class="fa-brands fa-telegram" style="font-size:3rem;color:#29b6f6;"></i>
+        <p style="font-size:0.95rem;opacity:0.9;">Vídeo do Telegram</p>
+        <a href="${escHtml(src)}" target="_blank" rel="noopener noreferrer"
+           style="background:#29b6f6;color:#000;padding:10px 24px;border-radius:24px;font-weight:700;text-decoration:none;display:flex;align-items:center;gap:8px;">
+          <i class="fa fa-external-link-alt"></i> Abrir no Telegram
+        </a>
+        <p style="font-size:0.75rem;opacity:0.5;">Vídeos do Telegram precisam ser abertos no app.</p>
+      </div>`;
+  } else if (source.type === "video_direct") {
+    body.innerHTML = `<video src="${escHtml(src)}" controls autoplay style="width:100%;height:100%;border-radius:12px;"></video>`;
+  } else {
+    body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.5);font-size:0.9rem;">Fonte de vídeo não identificada.</div>`;
+  }
+}
+
+function fecharPlayerVideo() {
+  const modal = document.getElementById("video-modal");
+  if (!modal) return;
+  modal.style.display = "none";
+  const body = document.getElementById("video-modal-body");
+  if (body) body.innerHTML = "";
+}
+window.fecharPlayerVideo = fecharPlayerVideo;
+
+// Fecha modal ao clicar fora
+document.addEventListener("click", (e) => {
+  const modal = document.getElementById("video-modal");
+  if (modal && e.target === modal) fecharPlayerVideo();
+});
+
+// ============================================================
+//  PLAYER YOUTUBE (áudio/música)
 // ============================================================
 let ytPlayer = null, ytReady = false, ytPendingId = null;
 
@@ -234,7 +276,7 @@ function onYtStateChange(event) {
 
 function playYoutubeId(id) {
   if (!ytReady || !ytPlayer || !ytPlayer.loadVideoById) { ytPendingId = id; return; }
-  stopAllPlayers();
+  stopAllAudioPlayers();
   ytPlayer.loadVideoById(id);
   ytPlayer.playVideo();
 }
@@ -262,21 +304,25 @@ function startProgressLoop() {
   }, 500);
 }
 
-function stopAllPlayers() {
+// Para apenas os players de ÁUDIO (não afeta o modal de vídeo)
+function stopAllAudioPlayers() {
   clearInterval(progressInterval);
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
   const audio = document.getElementById("direct-audio");
   if (audio) { audio.pause(); audio.src = ""; }
-  const wrap = document.getElementById("drive-iframe-wrap");
-  const iframe = document.getElementById("drive-iframe");
-  if (wrap) wrap.classList.add("hidden");
-  if (iframe) iframe.src = "";
 }
 
 let currentPlayerType = null;
 
 function playSong(rawSource, title, artist, cover, lyrics) {
   const src = detectSource(rawSource);
+
+  // Se for vídeo (youtube link de vídeo explícito, telegram, mp4) → abre modal de vídeo
+  if (src.type === "telegram" || src.type === "video_direct") {
+    abrirPlayerVideo(rawSource, title);
+    return;
+  }
+
   if (src.type === "none") {
     console.warn("EmpirePlay: fonte não identificada →", rawSource);
     showToast("Não foi possível identificar a fonte de reprodução.");
@@ -300,20 +346,20 @@ function playSong(rawSource, title, artist, cover, lyrics) {
 
   if (src.type === "youtube") {
     currentPlayerType = "youtube";
-    document.getElementById("drive-iframe-wrap").classList.add("hidden");
-    document.getElementById("drive-iframe").src = "";
     playYoutubeId(src.id);
   } else if (src.type === "drive") {
     currentPlayerType = "drive";
-    stopAllPlayers();
-    document.getElementById("drive-iframe-wrap").classList.remove("hidden");
-    document.getElementById("drive-iframe").src = `https://drive.google.com/file/d/${src.id}/preview`;
+    stopAllAudioPlayers();
+    // Drive: usa iframe apenas para Drive (áudio/vídeo via Drive)
+    const wrap = document.getElementById("drive-iframe-wrap");
+    const iframe = document.getElementById("drive-iframe");
+    if (wrap) wrap.classList.remove("hidden");
+    if (iframe) iframe.src = `https://drive.google.com/file/d/${src.id}/preview`;
   } else if (src.type === "direct") {
     currentPlayerType = "direct";
-    stopAllPlayers();
-    document.getElementById("drive-iframe-wrap").classList.add("hidden");
+    stopAllAudioPlayers();
     const audioEl = document.getElementById("direct-audio");
-    audioEl.src = src.url;
+    audioEl.src = rawSource;
     audioEl.play().catch(e => console.error("Audio play error:", e));
   }
 }
@@ -360,8 +406,10 @@ document.getElementById("direct-audio").addEventListener("ended", () => {
 });
 
 // ============================================================
-//  NAVEGAÇÃO
+//  NAVEGAÇÃO — lazy render por seção
 // ============================================================
+const renderedSections = new Set(["home"]);
+
 document.querySelectorAll(".nav-item").forEach(item => {
   item.addEventListener("click", e => {
     e.preventDefault();
@@ -371,8 +419,25 @@ document.querySelectorAll(".nav-item").forEach(item => {
     document.querySelectorAll(".section").forEach(s => s.classList.remove("active-section"));
     const el = document.getElementById(section);
     if (el) el.classList.add("active-section");
+
+    // Renderiza seção só quando o usuário navega para ela pela 1ª vez
+    if (!renderedSections.has(section)) {
+      renderedSections.add(section);
+      renderSection(section);
+    }
   });
 });
+
+function renderSection(section) {
+  switch (section) {
+    case "playlists":    renderTopPlaylists(); break;
+    case "albums":       renderAlbunsPagina(); break;
+    case "musicvideos": renderMusicVideos(); break;
+    case "videos":       renderVideos(); break;
+    case "topvideos":    renderTopVideos(); break;
+    case "forum":        renderForumTopicos(); break;
+  }
+}
 
 function irParaForum(idTopico, categoria) {
   document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
@@ -381,6 +446,7 @@ function irParaForum(idTopico, categoria) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("active-section"));
   const forumEl = document.getElementById("forum");
   if (forumEl) forumEl.classList.add("active-section");
+  renderedSections.add("forum");
   mudarAbaForum(categoria || "musicas");
   abrirTopicoForum(idTopico, categoria || "musicas");
 }
@@ -403,7 +469,8 @@ function showToast(msg) {
 }
 
 // ============================================================
-//  CARREGAMENTO DE DADOS
+//  CARREGAMENTO DE DADOS — sequencial e leve
+//  Carrega músicas PRIMEIRO (exibe home rápido), o restante depois
 // ============================================================
 let _carregando = false;
 
@@ -412,29 +479,34 @@ async function carregarTudo() {
   _carregando = true;
   showLoading(true);
   try {
-    const [rMusicas, rMV, rVideos, rAlbuns] = await Promise.all([
-      fetch(`${API_URL}?action=conteudo&categoria=musicas`).then(r => r.json()).catch(() => ({ data: [] })),
+    // 1ª fase — músicas (home visível rapidamente)
+    const rMusicas = await fetch(`${API_URL}?action=conteudo&categoria=musicas`)
+      .then(r => r.json()).catch(() => ({ data: [] }));
+    musicasDB = rMusicas.data || [];
+
+    // Renderiza home com dados de músicas imediatamente
+    renderRecentSongs();
+    renderSwiperSlides();
+    renderReleases();
+    showLoading(false);
+
+    // 2ª fase — restante em paralelo (sem bloquear a tela)
+    const [rMV, rVideos, rAlbuns] = await Promise.all([
       fetch(`${API_URL}?action=conteudo&categoria=musicvideos`).then(r => r.json()).catch(() => ({ data: [] })),
       fetch(`${API_URL}?action=conteudo&categoria=videos`).then(r => r.json()).catch(() => ({ data: [] })),
       fetch(`${API_URL}?action=conteudo&categoria=albuns`).then(r => r.json()).catch(() => ({ data: [] })),
     ]);
-    musicasDB     = rMusicas.data  || [];
-    musicVideosDB = rMV.data       || [];
-    videosDB      = rVideos.data   || [];
-    albumsDB      = rAlbuns.data   || [];
+    musicVideosDB = rMV.data     || [];
+    videosDB      = rVideos.data || [];
+    albumsDB      = rAlbuns.data || [];
 
-    renderRecentSongs();
+    // Renderiza restante da home
     renderAlbuns();
-    renderSwiperSlides();
-    renderTopPlaylists();
-    renderMusicVideos();
-    renderVideos();
-    renderTopVideos();
-    renderForumTopicos();
-    renderReleases();
+    renderTopPlaylists_home();
+
   } catch (err) {
     console.error("Erro ao carregar dados:", err);
-    showToast("Erro ao carregar conteúdo. Tente recarregar a página.");
+    showToast("Erro ao carregar conteúdo. Tente recarregar.");
   } finally {
     _carregando = false;
     showLoading(false);
@@ -464,7 +536,6 @@ function parseData(item, mapFn) {
 //  RENDERS
 // ============================================================
 
-// Músicas recentes (coluna lateral)
 function renderRecentSongs() {
   const el = document.getElementById("recent-songs");
   if (!el) return;
@@ -479,9 +550,8 @@ function renderRecentSongs() {
     </div>`).join("") || "<p class='forum-empty'>Nenhuma música ainda.</p>";
 }
 
-// Álbuns na Home
+// Álbuns na Home (scroll horizontal)
 function renderAlbuns() {
-  // Prioriza aba Álbuns se disponível, fallback para agrupamento por Músicas
   let albunsData = albumsDB.length ? albumsDB.map(a => ({
     title:  FA.nome(a),
     artist: FA.nomeCriador(a),
@@ -506,12 +576,38 @@ function renderAlbuns() {
     </div>`).join("") || "<p class='forum-empty'>Nenhum álbum ainda.</p>";
 
   const g1 = document.getElementById("albums-grid");
-  const g2 = document.getElementById("albums-grid-page");
   if (g1) g1.innerHTML = html;
+}
+
+// Álbuns na página dedicada (renderiza só quando navegar)
+function renderAlbunsPagina() {
+  let albunsData = albumsDB.length ? albumsDB.map(a => ({
+    title:  FA.nome(a),
+    artist: FA.nomeCriador(a),
+    capa:   FA.capa(a),
+    id:     FA.idTopico(a),
+  })) : [];
+
+  if (!albunsData.length) {
+    const map = {};
+    musicasDB.forEach(m => {
+      const al = FM.album(m);
+      if (al && !map[al]) map[al] = { title: al, artist: FM.actPrincipal(m), capa: FM.capa(m), id: al };
+    });
+    albunsData = Object.values(map);
+  }
+
+  const html = albunsData.map(a => `
+    <div class="album">
+      <div class="album-frame"><img ${imgWithFallback(a.capa, a.id)} alt="${escHtml(a.title)}"/></div>
+      <h2>${escHtml(a.title)}</h2>
+      <p>${escHtml(a.artist)}</p>
+    </div>`).join("") || "<p class='forum-empty'>Nenhum álbum ainda.</p>";
+
+  const g2 = document.getElementById("albums-grid-page");
   if (g2) g2.innerHTML = html;
 }
 
-// Swiper destaques
 function renderSwiperSlides() {
   const wrapper = document.getElementById("swiper-wrapper");
   if (!wrapper) return;
@@ -525,13 +621,26 @@ function renderSwiperSlides() {
         <button onclick="tocarMusica('${escAttr(FM.idTopico(m))}')">Ouvir Agora <i class="fa-solid fa-circle-play"></i></button>
       </div>
     </div>`).join("");
-  if (window.swiperInstance) window.swiperInstance.update();
+  if (window.swiperInstance) {
+    window.swiperInstance.update();
+    window.swiperInstance.slideToLoop(0, 0);
+  }
 }
 
-// Top Playlists (por WEEKS)
+// Top Playlists — versão home (sem nav)
+function renderTopPlaylists_home() {
+  const el = document.getElementById("playlists-grid");
+  if (!el || renderedSections.has("playlists")) return;
+  _renderTopPlaylistsInto(el);
+}
+
 function renderTopPlaylists() {
   const el = document.getElementById("playlists-grid");
   if (!el) return;
+  _renderTopPlaylistsInto(el);
+}
+
+function _renderTopPlaylistsInto(el) {
   const sorted = [...musicasDB].sort((a, b) => (parseInt(FM.weeks(b)) || 0) - (parseInt(FM.weeks(a)) || 0)).slice(0, 12);
   el.innerHTML = sorted.map(m => `
     <div class="playlist-card" onclick="tocarMusica('${escAttr(FM.idTopico(m))}')">
@@ -542,7 +651,6 @@ function renderTopPlaylists() {
     </div>`).join("") || "<p class='forum-empty'>Sem dados de chart ainda.</p>";
 }
 
-// Music Videos
 function renderMusicVideos() {
   const el = document.getElementById("mv-grid");
   if (!el) return;
@@ -560,7 +668,6 @@ function renderMusicVideos() {
     </div>`).join("") || "<p class='forum-empty'>Nenhum Music Video ainda.</p>";
 }
 
-// Vídeos gerais
 function renderVideos() {
   const el = document.getElementById("my-video-list");
   if (!el) return;
@@ -578,7 +685,6 @@ function renderVideos() {
     </div>`).join("") || "<p class='forum-empty'>Nenhum vídeo ainda.</p>";
 }
 
-// Top Vídeos (por WEEKS VIDEO)
 function renderTopVideos() {
   const el = document.getElementById("top-videos-grid");
   if (!el) return;
@@ -597,7 +703,7 @@ function renderTopVideos() {
     </div>`).join("") || "<p class='forum-empty'>Sem dados de chart ainda.</p>";
 }
 
-// Releases recentes (abas: músicas / musicvideos / videos)
+// Releases recentes
 function mudarAbaReleases(categoria) {
   releasesAbaAtiva = categoria;
   document.querySelectorAll(".releases-tab").forEach(t => t.classList.remove("active"));
@@ -657,7 +763,9 @@ function tocarVideo(idTopico, categoria) {
   const db   = categoria === "musicvideos" ? musicVideosDB : videosDB;
   const item = db.find(x => String(FV.idTopico(x)) === String(idTopico));
   if (!item) { console.warn("Vídeo não encontrado:", idTopico, categoria); return; }
-  playSong(FV.idArquivo(item), FV.nome(item) || "Vídeo", FV.nomeCriador(item) || "", FV.thumb(item), null);
+  const src = FV.idArquivo(item);
+  // Abre no player de vídeo dedicado (modal)
+  abrirPlayerVideo(src, FV.nome(item) || "Vídeo");
   configurarBotaoForum(idTopico, categoria);
 }
 
@@ -758,7 +866,6 @@ async function carregarComentariosForum(idTopico, categoria) {
     const res  = await fetch(`${API_URL}?action=comentarios&categoria=${categoria}&idTopico=${idTopico}`);
     const json = await res.json();
     const comentarios = json.data || [];
-    // Suporte às duas nomenclaturas: Comentarios_Albuns e Comentarios_Videos
     listEl.innerHTML = comentarios.length
       ? comentarios.map(c => {
           const isVideo = categoria === "videos";
@@ -822,19 +929,23 @@ async function enviarComentario() {
 }
 
 // ============================================================
-//  SWIPER
+//  SWIPER — inicializa depois dos dados
 // ============================================================
-window.swiperInstance = new Swiper(".swiper", {
-  effect: "coverflow",
-  grabCursor: true,
-  centeredSlides: true,
-  loop: true,
-  speed: 600,
-  slidesPerView: "auto",
-  coverflowEffect: { rotate: 10, stretch: 120, depth: 200, modifier: 1, slideShadows: false },
-  on: { click() { window.swiperInstance.slideTo(this.clickedIndex); } },
-  pagination: { el: ".swiper-pagination" },
-});
+window.swiperInstance = null;
+function initSwiper() {
+  if (window.swiperInstance) return;
+  window.swiperInstance = new Swiper(".swiper", {
+    effect: "coverflow",
+    grabCursor: true,
+    centeredSlides: true,
+    loop: true,
+    speed: 600,
+    slidesPerView: "auto",
+    coverflowEffect: { rotate: 10, stretch: 120, depth: 200, modifier: 1, slideShadows: false },
+    on: { click() { window.swiperInstance.slideTo(this.clickedIndex); } },
+    pagination: { el: ".swiper-pagination" },
+  });
+}
 
 // ============================================================
 //  MINHAS MÚSICAS (local)
@@ -864,7 +975,7 @@ function addSong() {
 }
 
 // ============================================================
-//  ESCAPE HELPERS (prevenção XSS)
+//  ESCAPE HELPERS
 // ============================================================
 function escHtml(str) {
   return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -876,5 +987,6 @@ function escAttr(str) {
 // ============================================================
 //  INIT
 // ============================================================
+initSwiper();
 carregarTudo();
 renderMySongs();
