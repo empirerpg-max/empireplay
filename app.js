@@ -1,5 +1,5 @@
 // ============================================================
-//  EmpirePlay - app.js (v10 - Leve, lazy load, suporte Telegram)
+//  EmpirePlay - app.js (v10.1 - fixes: playlists home + fórum mapeador)
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
@@ -158,12 +158,10 @@ function extractYoutubeId(str) {
   return m ? m[1] : null;
 }
 
-// Detecta links Telegram: t.me, telegram.me ou IDs numéricos de arquivo
 function extractTelegramInfo(str) {
   if (!str) return null;
   const s = String(str).trim();
-  // Link direto de arquivo do Telegram: https://t.me/c/CHATID/MSGID ou https://t.me/CHANNEL/MSGID
-  const m1 = s.match(/t\.me\/(?:c\/)?([^/]+)\/([\d]+)/);
+  const m1 = s.match(/t\.me\/(?:c\/)?([^/]+\/([\d]+))/);
   if (m1) return { channel: m1[1], msgId: m1[2] };
   return null;
 }
@@ -173,13 +171,9 @@ function detectSource(str) {
   const s = String(str).trim();
   if (s.includes("youtube.com") || s.includes("youtu.be")) return { type: "youtube", id: extractYoutubeId(s) };
   if (s.includes("drive.google.com")) return { type: "drive", id: extractDriveId(s) };
-  // Telegram
   if (s.includes("t.me") || s.includes("telegram.me")) return { type: "telegram", url: s };
-  // Vídeo direto (mp4, webm, etc.)
   if (s.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) return { type: "video_direct", url: s };
-  // Áudio direto
   if (s.match(/\.(mp3|wav|ogg|aac)(\?|$)/i)) return { type: "direct", url: s };
-  // ID do Drive puro
   if (s.match(/^[a-zA-Z0-9_-]{25,}$/)) return { type: "drive", id: s };
   return { type: "none" };
 }
@@ -215,7 +209,6 @@ function abrirPlayerVideo(src, titulo) {
   } else if (source.type === "drive") {
     body.innerHTML = `<iframe src="https://drive.google.com/file/d/${source.id}/preview" style="width:100%;height:100%;border:0;" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
   } else if (source.type === "telegram") {
-    // Telegram: embed via iframe do viewer público
     body.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:#fff;padding:20px;text-align:center;">
         <i class="fa-brands fa-telegram" style="font-size:3rem;color:#29b6f6;"></i>
@@ -242,7 +235,6 @@ function fecharPlayerVideo() {
 }
 window.fecharPlayerVideo = fecharPlayerVideo;
 
-// Fecha modal ao clicar fora
 document.addEventListener("click", (e) => {
   const modal = document.getElementById("video-modal");
   if (modal && e.target === modal) fecharPlayerVideo();
@@ -304,7 +296,6 @@ function startProgressLoop() {
   }, 500);
 }
 
-// Para apenas os players de ÁUDIO (não afeta o modal de vídeo)
 function stopAllAudioPlayers() {
   clearInterval(progressInterval);
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
@@ -317,7 +308,6 @@ let currentPlayerType = null;
 function playSong(rawSource, title, artist, cover, lyrics) {
   const src = detectSource(rawSource);
 
-  // Se for vídeo (youtube link de vídeo explícito, telegram, mp4) → abre modal de vídeo
   if (src.type === "telegram" || src.type === "video_direct") {
     abrirPlayerVideo(rawSource, title);
     return;
@@ -350,7 +340,6 @@ function playSong(rawSource, title, artist, cover, lyrics) {
   } else if (src.type === "drive") {
     currentPlayerType = "drive";
     stopAllAudioPlayers();
-    // Drive: usa iframe apenas para Drive (áudio/vídeo via Drive)
     const wrap = document.getElementById("drive-iframe-wrap");
     const iframe = document.getElementById("drive-iframe");
     if (wrap) wrap.classList.remove("hidden");
@@ -420,11 +409,11 @@ document.querySelectorAll(".nav-item").forEach(item => {
     const el = document.getElementById(section);
     if (el) el.classList.add("active-section");
 
-    // Renderiza seção só quando o usuário navega para ela pela 1ª vez
     if (!renderedSections.has(section)) {
       renderedSections.add(section);
-      renderSection(section);
     }
+    // Sempre re-renderiza ao navegar para garantir dados atualizados
+    renderSection(section);
   });
 });
 
@@ -432,7 +421,7 @@ function renderSection(section) {
   switch (section) {
     case "playlists":    renderTopPlaylists(); break;
     case "albums":       renderAlbunsPagina(); break;
-    case "musicvideos": renderMusicVideos(); break;
+    case "musicvideos":  renderMusicVideos(); break;
     case "videos":       renderVideos(); break;
     case "topvideos":    renderTopVideos(); break;
     case "forum":        renderForumTopicos(); break;
@@ -470,7 +459,6 @@ function showToast(msg) {
 
 // ============================================================
 //  CARREGAMENTO DE DADOS — sequencial e leve
-//  Carrega músicas PRIMEIRO (exibe home rápido), o restante depois
 // ============================================================
 let _carregando = false;
 
@@ -484,13 +472,12 @@ async function carregarTudo() {
       .then(r => r.json()).catch(() => ({ data: [] }));
     musicasDB = rMusicas.data || [];
 
-    // Renderiza home com dados de músicas imediatamente
     renderRecentSongs();
     renderSwiperSlides();
     renderReleases();
     showLoading(false);
 
-    // 2ª fase — restante em paralelo (sem bloquear a tela)
+    // 2ª fase — restante em paralelo
     const [rMV, rVideos, rAlbuns] = await Promise.all([
       fetch(`${API_URL}?action=conteudo&categoria=musicvideos`).then(r => r.json()).catch(() => ({ data: [] })),
       fetch(`${API_URL}?action=conteudo&categoria=videos`).then(r => r.json()).catch(() => ({ data: [] })),
@@ -502,6 +489,8 @@ async function carregarTudo() {
 
     // Renderiza restante da home
     renderAlbuns();
+    // FIX v10.1: renderTopPlaylists_home não guarda mais por renderedSections —
+    // se o usuário já navegou para Playlists antes da Fase 2, re-renderiza com dados reais.
     renderTopPlaylists_home();
 
   } catch (err) {
@@ -579,7 +568,7 @@ function renderAlbuns() {
   if (g1) g1.innerHTML = html;
 }
 
-// Álbuns na página dedicada (renderiza só quando navegar)
+// Álbuns na página dedicada
 function renderAlbunsPagina() {
   let albunsData = albumsDB.length ? albumsDB.map(a => ({
     title:  FA.nome(a),
@@ -627,10 +616,12 @@ function renderSwiperSlides() {
   }
 }
 
-// Top Playlists — versão home (sem nav)
+// FIX v10.1: renderTopPlaylists_home sempre renderiza quando chamada após Fase 2,
+// independente de renderedSections — garante que dados reais apareçam mesmo se
+// o usuário navegou para Playlists antes de musicasDB estar populado.
 function renderTopPlaylists_home() {
   const el = document.getElementById("playlists-grid");
-  if (!el || renderedSections.has("playlists")) return;
+  if (!el) return;
   _renderTopPlaylistsInto(el);
 }
 
@@ -764,7 +755,6 @@ function tocarVideo(idTopico, categoria) {
   const item = db.find(x => String(FV.idTopico(x)) === String(idTopico));
   if (!item) { console.warn("Vídeo não encontrado:", idTopico, categoria); return; }
   const src = FV.idArquivo(item);
-  // Abre no player de vídeo dedicado (modal)
   abrirPlayerVideo(src, FV.nome(item) || "Vídeo");
   configurarBotaoForum(idTopico, categoria);
 }
@@ -868,11 +858,12 @@ async function carregarComentariosForum(idTopico, categoria) {
     const comentarios = json.data || [];
     listEl.innerHTML = comentarios.length
       ? comentarios.map(c => {
-          const isVideo = categoria === "videos";
-          const nome    = isVideo ? FC_V.autor(c) : FC_A.nomeJogador(c);
-          const texto   = isVideo ? FC_V.texto(c) : FC_A.comentario(c);
-          const reacoes = isVideo ? FC_V.reacoes(c) : "";
-          const data    = (isVideo ? FC_V.data(c) : FC_A.data(c)) || "";
+          // FIX v10.1: musicvideos e videos ambos usam FC_V — só musicas usa FC_A
+          const isVideo = categoria === "videos" || categoria === "musicvideos";
+          const nome    = isVideo ? FC_V.autor(c)    : FC_A.nomeJogador(c);
+          const texto   = isVideo ? FC_V.texto(c)    : FC_A.comentario(c);
+          const reacoes = isVideo ? FC_V.reacoes(c)  : "";
+          const data    = (isVideo ? FC_V.data(c)    : FC_A.data(c)) || "";
           return `
             <div class="forum-comment">
               <div class="forum-comment-header">
@@ -929,7 +920,7 @@ async function enviarComentario() {
 }
 
 // ============================================================
-//  SWIPER — inicializa depois dos dados
+//  SWIPER
 // ============================================================
 window.swiperInstance = null;
 function initSwiper() {
