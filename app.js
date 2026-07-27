@@ -1,8 +1,11 @@
 // ============================================================
-//  EmpirePlay - app.js (v10.2 - fix: renderTopVideos usa FV.weeksVideo)
+//  EmpirePlay - app.js (v10.3 - fix: telegram player, forum cache, data reload)
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
+
+// Worker Cloudflare para streaming de arquivos do Telegram
+const TG_WORKER = "https://empire-media-api.empirerpg-forum.workers.dev";
 
 // ============================================================
 //  NORMALIZAÇÃO E MAPEAMENTO
@@ -72,8 +75,6 @@ const FV = {
   nome:           (i) => gf(i, "Nome", "nome", "nome_da_musica", "titulo"),
   nomeCriador:    (i) => gf(i, "Nome do criador", "nomecriador"),
   tipo:           (i) => gf(i, "Tipo", "tipo"),
-  // FIX v10.2: weeksVideo adicionado ao mapeador FV para que renderTopVideos
-  // leia corretamente a coluna "WEEKS VIDEO" dos itens de musicVideosDB.
   weeksVideo:     (i) => gf(i, "WEEKS VIDEO", "weeksvideo", "weeks_video"),
 };
 
@@ -107,6 +108,10 @@ let currentCategoria = "musicas";
 let forumAbaAtiva    = "musicas";
 let releasesAbaAtiva = "musicas";
 let currentLyrics    = "";
+
+// Cache de comentários: { "categoria:idTopico": { data: [...], ts: timestamp } }
+const comentariosCache = {};
+const CACHE_TTL = 60 * 1000; // 1 minuto
 
 // ============================================================
 //  UTILITÁRIOS DE IMAGEM
@@ -153,7 +158,8 @@ function tryNextImg(imgEl) {
 window.tryNextImg = tryNextImg;
 
 // ============================================================
-//  DETECÇÃO DE FONTE — inclui Telegram
+//  DETECÇÃO DE FONTE
+//  FIX v10.3: isTelegramFileId detecta file_ids brutos do Telegram
 // ============================================================
 function extractYoutubeId(str) {
   if (!str) return null;
@@ -169,20 +175,43 @@ function extractTelegramInfo(str) {
   return null;
 }
 
+// FIX v10.3: file_id do Telegram tem 25-100 chars alfanuméricos+hífen+underscore,
+// mas NÃO tem 11 chars (YouTube) nem 33+ chars sem hífen/underscore (Drive UUID).
+function isTelegramFileId(s) {
+  if (!s) return false;
+  const str = String(s).trim();
+  // Deve ser apenas alfanumérico, hífen e underscore
+  if (!/^[A-Za-z0-9_-]+$/.test(str)) return false;
+  // YouTube IDs têm exatamente 11 chars — excluir
+  if (str.length === 11) return false;
+  // Drive IDs puros têm 28-33 chars só com letras/números (sem _ ou -)
+  // File IDs do Telegram geralmente contêm _ ou - e têm 20-100 chars
+  const hasSeparator = str.includes("_") || str.includes("-");
+  return hasSeparator && str.length >= 20;
+}
+
+function telegramStreamUrl(fileId) {
+  return `${TG_WORKER}/tg?file_id=${encodeURIComponent(fileId)}`;
+}
+
 function detectSource(str) {
   if (!str || String(str).trim() === "") return { type: "none" };
   const s = String(str).trim();
   if (s.includes("youtube.com") || s.includes("youtu.be")) return { type: "youtube", id: extractYoutubeId(s) };
   if (s.includes("drive.google.com")) return { type: "drive", id: extractDriveId(s) };
-  if (s.includes("t.me") || s.includes("telegram.me")) return { type: "telegram", url: s };
+  if (s.includes("t.me") || s.includes("telegram.me")) return { type: "telegram_url", url: s };
   if (s.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) return { type: "video_direct", url: s };
   if (s.match(/\.(mp3|wav|ogg|aac)(\?|$)/i)) return { type: "direct", url: s };
+  // FIX v10.3: testa file_id do Telegram ANTES de tentar Drive
+  if (isTelegramFileId(s)) return { type: "telegram_fileid", id: s };
   if (s.match(/^[a-zA-Z0-9_-]{25,}$/)) return { type: "drive", id: s };
   return { type: "none" };
 }
 
 // ============================================================
 //  PLAYER DE VÍDEO DEDICADO (modal)
+//  FIX v10.3: tipo telegram_fileid usa Worker para streaming;
+//             tipo telegram_url mantém fallback de link externo.
 // ============================================================
 function abrirPlayerVideo(src, titulo) {
   let modal = document.getElementById("video-modal");
@@ -209,9 +238,23 @@ function abrirPlayerVideo(src, titulo) {
 
   if (source.type === "youtube") {
     body.innerHTML = `<iframe src="https://www.youtube.com/embed/${source.id}?autoplay=1" style="width:100%;height:100%;border:0;" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+
   } else if (source.type === "drive") {
     body.innerHTML = `<iframe src="https://drive.google.com/file/d/${source.id}/preview" style="width:100%;height:100%;border:0;" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
-  } else if (source.type === "telegram") {
+
+  } else if (source.type === "telegram_fileid") {
+    // FIX v10.3: file_id bruto → stream via Worker Cloudflare
+    const streamUrl = telegramStreamUrl(source.id);
+    body.innerHTML = `
+      <video
+        src="${escHtml(streamUrl)}"
+        controls autoplay playsinline preload="metadata"
+        style="width:100%;height:100%;border-radius:12px;background:#000;"
+        onerror="telegramVideoError(this, '${escAttr(src)}')"
+      ></video>`;
+
+  } else if (source.type === "telegram_url") {
+    // Link t.me público — fallback para abertura externa
     body.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:#fff;padding:20px;text-align:center;">
         <i class="fa-brands fa-telegram" style="font-size:3rem;color:#29b6f6;"></i>
@@ -220,14 +263,33 @@ function abrirPlayerVideo(src, titulo) {
            style="background:#29b6f6;color:#000;padding:10px 24px;border-radius:24px;font-weight:700;text-decoration:none;display:flex;align-items:center;gap:8px;">
           <i class="fa fa-external-link-alt"></i> Abrir no Telegram
         </a>
-        <p style="font-size:0.75rem;opacity:0.5;">Vídeos do Telegram precisam ser abertos no app.</p>
+        <p style="font-size:0.75rem;opacity:0.5;">Links públicos do Telegram precisam ser abertos no app.</p>
       </div>`;
+
   } else if (source.type === "video_direct") {
     body.innerHTML = `<video src="${escHtml(src)}" controls autoplay style="width:100%;height:100%;border-radius:12px;"></video>`;
+
   } else {
     body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.5);font-size:0.9rem;">Fonte de vídeo não identificada.</div>`;
   }
 }
+
+// FIX v10.3: se o Worker falhar, mostra botão de link externo (se for URL) ou mensagem de erro
+function telegramVideoError(videoEl, originalSrc) {
+  const body = document.getElementById("video-modal-body");
+  if (!body) return;
+  const isUrl = originalSrc.startsWith("http");
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:#fff;padding:20px;text-align:center;">
+      <i class="fa-brands fa-telegram" style="font-size:3rem;color:#29b6f6;"></i>
+      <p style="font-size:0.95rem;opacity:0.9;">Não foi possível carregar o vídeo via stream.</p>
+      ${isUrl ? `<a href="${escHtml(originalSrc)}" target="_blank" rel="noopener noreferrer"
+         style="background:#29b6f6;color:#000;padding:10px 24px;border-radius:24px;font-weight:700;text-decoration:none;">
+         <i class="fa fa-external-link-alt"></i> Abrir no Telegram
+       </a>` : `<p style="font-size:0.8rem;opacity:0.6;">Verifique se o Worker de mídia está ativo.</p>`}
+    </div>`;
+}
+window.telegramVideoError = telegramVideoError;
 
 function fecharPlayerVideo() {
   const modal = document.getElementById("video-modal");
@@ -311,7 +373,7 @@ let currentPlayerType = null;
 function playSong(rawSource, title, artist, cover, lyrics) {
   const src = detectSource(rawSource);
 
-  if (src.type === "telegram" || src.type === "video_direct") {
+  if (src.type === "telegram_fileid" || src.type === "telegram_url" || src.type === "video_direct") {
     abrirPlayerVideo(rawSource, title);
     return;
   }
@@ -462,6 +524,7 @@ function showToast(msg) {
 
 // ============================================================
 //  CARREGAMENTO DE DADOS — sequencial e leve
+//  FIX v10.3: após Fase 2, re-renderiza seção ativa se precisar de dados novos
 // ============================================================
 let _carregando = false;
 
@@ -492,9 +555,17 @@ async function carregarTudo() {
 
     // Renderiza restante da home
     renderAlbuns();
-    // FIX v10.1: renderTopPlaylists_home não guarda mais por renderedSections —
-    // se o usuário já navegou para Playlists antes da Fase 2, re-renderiza com dados reais.
     renderTopPlaylists_home();
+
+    // FIX v10.3: se o usuário já está em uma seção que depende da Fase 2,
+    // re-renderiza com os dados recém carregados.
+    const secaoAtiva = document.querySelector(".section.active-section");
+    if (secaoAtiva) {
+      const id = secaoAtiva.id;
+      if (["musicvideos", "videos", "topvideos", "albums", "playlists", "forum"].includes(id)) {
+        renderSection(id);
+      }
+    }
 
   } catch (err) {
     console.error("Erro ao carregar dados:", err);
@@ -619,9 +690,6 @@ function renderSwiperSlides() {
   }
 }
 
-// FIX v10.1: renderTopPlaylists_home sempre renderiza quando chamada após Fase 2,
-// independente de renderedSections — garante que dados reais apareçam mesmo se
-// o usuário navegou para Playlists antes de musicasDB estar populado.
 function renderTopPlaylists_home() {
   const el = document.getElementById("playlists-grid");
   if (!el) return;
@@ -679,8 +747,6 @@ function renderVideos() {
     </div>`).join("") || "<p class='forum-empty'>Nenhum vídeo ainda.</p>";
 }
 
-// FIX v10.2: ordenação usa FV.weeksVideo (mapeador correto para musicVideosDB)
-// em vez de FM.weeksVideo (mapeador de músicas). Badge também corrigido.
 function renderTopVideos() {
   const el = document.getElementById("top-videos-grid");
   if (!el) return;
@@ -853,37 +919,52 @@ async function abrirTopicoForum(idTopico, categoria) {
   await carregarComentariosForum(idTopico, categoria);
 }
 
-async function carregarComentariosForum(idTopico, categoria) {
+// FIX v10.3: cache de comentários com TTL de 1 minuto para evitar fetch duplicado
+async function carregarComentariosForum(idTopico, categoria, forceRefresh = false) {
   const listEl = document.getElementById("forum-comment-list");
   if (!listEl) return;
+
+  const cacheKey = `${categoria}:${idTopico}`;
+  const cached = comentariosCache[cacheKey];
+  const agora = Date.now();
+
+  if (!forceRefresh && cached && (agora - cached.ts) < CACHE_TTL) {
+    renderComentarios(listEl, cached.data, categoria);
+    return;
+  }
+
   listEl.innerHTML = "<p class='forum-loading'><i class='fa fa-spinner fa-spin'></i> Carregando...</p>";
   try {
     const res  = await fetch(`${API_URL}?action=comentarios&categoria=${categoria}&idTopico=${idTopico}`);
     const json = await res.json();
     const comentarios = json.data || [];
-    listEl.innerHTML = comentarios.length
-      ? comentarios.map(c => {
-          // FIX v10.1: musicvideos e videos ambos usam FC_V — só musicas usa FC_A
-          const isVideo = categoria === "videos" || categoria === "musicvideos";
-          const nome    = isVideo ? FC_V.autor(c)    : FC_A.nomeJogador(c);
-          const texto   = isVideo ? FC_V.texto(c)    : FC_A.comentario(c);
-          const reacoes = isVideo ? FC_V.reacoes(c)  : "";
-          const data    = (isVideo ? FC_V.data(c)    : FC_A.data(c)) || "";
-          return `
-            <div class="forum-comment">
-              <div class="forum-comment-header">
-                <strong>${escHtml(nome || "Anônimo")}</strong>
-                ${data ? `<span class="comment-date">${new Date(data).toLocaleDateString("pt-BR")}</span>` : ""}
-              </div>
-              <p>${escHtml(texto || "")}</p>
-              ${reacoes ? `<div class="forum-reacoes">${escHtml(reacoes)}</div>` : ""}
-            </div>`;
-        }).join("")
-      : "<p class='forum-empty'>Nenhum comentário ainda. Seja o primeiro! 🎵</p>";
+    comentariosCache[cacheKey] = { data: comentarios, ts: Date.now() };
+    renderComentarios(listEl, comentarios, categoria);
   } catch (err) {
     listEl.innerHTML = "<p class='forum-empty'>Erro ao carregar comentários.</p>";
     console.error("Erro comentários:", err);
   }
+}
+
+function renderComentarios(listEl, comentarios, categoria) {
+  listEl.innerHTML = comentarios.length
+    ? comentarios.map(c => {
+        const isVideo = categoria === "videos" || categoria === "musicvideos";
+        const nome    = isVideo ? FC_V.autor(c)    : FC_A.nomeJogador(c);
+        const texto   = isVideo ? FC_V.texto(c)    : FC_A.comentario(c);
+        const reacoes = isVideo ? FC_V.reacoes(c)  : "";
+        const data    = (isVideo ? FC_V.data(c)    : FC_A.data(c)) || "";
+        return `
+          <div class="forum-comment">
+            <div class="forum-comment-header">
+              <strong>${escHtml(nome || "Anônimo")}</strong>
+              ${data ? `<span class="comment-date">${new Date(data).toLocaleDateString("pt-BR")}</span>` : ""}
+            </div>
+            <p>${escHtml(texto || "")}</p>
+            ${reacoes ? `<div class="forum-reacoes">${escHtml(reacoes)}</div>` : ""}
+          </div>`;
+      }).join("")
+    : "<p class='forum-empty'>Nenhum comentário ainda. Seja o primeiro! 🎵</p>";
 }
 
 function voltarListaForum() {
@@ -915,7 +996,8 @@ async function enviarComentario() {
     });
     textoEl.value = "";
     showToast("Comentário enviado! 🎉");
-    await carregarComentariosForum(currentTopicoId, currentCategoria);
+    // FIX v10.3: força refresh do cache após envio para mostrar o comentário novo
+    await carregarComentariosForum(currentTopicoId, currentCategoria, true);
   } catch (err) {
     showToast("Erro ao enviar comentário.");
     console.error(err);
