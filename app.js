@@ -1,5 +1,5 @@
 // ============================================================
-//  EmpirePlay - app.js (v10.1 - fixes: playlists home + fórum mapeador)
+//  EmpirePlay - app.js (v10.2 - fix: renderTopVideos usa FV.weeksVideo)
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycby1S1mIBXdj4hLqc9RYv1ZJjL7d5ct6to18FNPmpJn1KOnZrYCKJKPNe2LP0dPW-G8HOg/exec";
@@ -72,6 +72,9 @@ const FV = {
   nome:           (i) => gf(i, "Nome", "nome", "nome_da_musica", "titulo"),
   nomeCriador:    (i) => gf(i, "Nome do criador", "nomecriador"),
   tipo:           (i) => gf(i, "Tipo", "tipo"),
+  // FIX v10.2: weeksVideo adicionado ao mapeador FV para que renderTopVideos
+  // leia corretamente a coluna "WEEKS VIDEO" dos itens de musicVideosDB.
+  weeksVideo:     (i) => gf(i, "WEEKS VIDEO", "weeksvideo", "weeks_video"),
 };
 
 const FC_A = {
@@ -676,10 +679,12 @@ function renderVideos() {
     </div>`).join("") || "<p class='forum-empty'>Nenhum vídeo ainda.</p>";
 }
 
+// FIX v10.2: ordenação usa FV.weeksVideo (mapeador correto para musicVideosDB)
+// em vez de FM.weeksVideo (mapeador de músicas). Badge também corrigido.
 function renderTopVideos() {
   const el = document.getElementById("top-videos-grid");
   if (!el) return;
-  const sorted = [...musicVideosDB].sort((a, b) => (parseInt(FM.weeksVideo(b)) || 0) - (parseInt(FM.weeksVideo(a)) || 0)).slice(0, 12);
+  const sorted = [...musicVideosDB].sort((a, b) => (parseInt(FV.weeksVideo(b)) || 0) - (parseInt(FV.weeksVideo(a)) || 0)).slice(0, 12);
   el.innerHTML = sorted.map(v => `
     <div class="video-card" onclick="tocarVideo('${escAttr(FV.idTopico(v))}','musicvideos')">
       <div class="video-thumb">
@@ -689,7 +694,7 @@ function renderTopVideos() {
       <div class="video-info">
         <h3>${escHtml(FV.nome(v) || "Music Video")}</h3>
         <p>${escHtml(FV.nomeCriador(v) || "")}</p>
-        <span class="weeks-badge">${FM.weeksVideo(v) || 0} sem. em vídeo</span>
+        <span class="weeks-badge">${FV.weeksVideo(v) || 0} sem. em vídeo</span>
       </div>
     </div>`).join("") || "<p class='forum-empty'>Sem dados de chart ainda.</p>";
 }
